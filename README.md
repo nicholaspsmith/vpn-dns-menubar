@@ -10,9 +10,14 @@ and let this be the only one.
 
 ## What you see
 
-The menu bar shows **one icon**: a single status dot that tracks Mullvad:
+The menu bar shows **one icon**: a single status dot that tracks Mullvad.
 
-🟢 connected · 🟠 connecting/disconnecting · 🔴 blocked · ⚪ off
+| State | Dot |
+|-------|-----|
+| Connected | ![connected](screenshots/menubar-connected.png) |
+| Connecting / Disconnecting | ![connecting](screenshots/menubar-connecting.png) |
+| Blocked | ![blocked](screenshots/menubar-blocked.png) |
+| Off / disconnected | ![off](screenshots/menubar-off.png) |
 
 Clicking it opens a dropdown:
 
