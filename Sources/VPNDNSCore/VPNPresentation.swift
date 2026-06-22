@@ -1,6 +1,6 @@
 import Foundation
 
-public enum DotColor: Equatable { case green, orange, red, grey }
+public enum DotColor: Equatable { case green, orange, red, grey, blue }
 
 public func dotColor(for state: MullvadState) -> DotColor {
     switch state {
@@ -9,6 +9,15 @@ public func dotColor(for state: MullvadState) -> DotColor {
     case .blocked: return .red
     case .off: return .grey
     }
+}
+
+/// The menu-bar dot color from both states. Mullvad states win (green/orange/red);
+/// blue shows when Mullvad is off but Tailscale is running (the active path);
+/// grey when both are off. Mullvad-connected makes the tailnet unreachable, so the
+/// two are effectively mutually exclusive — blue simply replaces grey.
+public func dotColor(mullvad state: MullvadState, tailscaleRunning: Bool) -> DotColor {
+    if state == .off && tailscaleRunning { return .blue }
+    return dotColor(for: state)
 }
 
 private func word(_ state: MullvadState) -> String {
