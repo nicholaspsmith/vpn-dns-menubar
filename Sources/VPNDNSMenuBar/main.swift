@@ -11,6 +11,7 @@ private func nsColor(_ c: DotColor) -> NSColor {
     case .orange: return NSColor(red: 1.0, green: 0.62, blue: 0.04, alpha: 1)    // #ff9f0a
     case .red: return NSColor(red: 1.0, green: 0.27, blue: 0.23, alpha: 1)       // #ff453a
     case .grey: return NSColor(red: 0.60, green: 0.60, blue: 0.62, alpha: 1)     // #98989d
+    case .blue: return NSColor(red: 0.04, green: 0.52, blue: 1.0, alpha: 1)      // #0a84ff
     }
 }
 
@@ -33,7 +34,7 @@ final class App: NSObject, NSApplicationDelegate {
         mullvad = parseMullvadStatus(Shell.run(MULLVAD, ["status"]) ?? "")
         backend = parseTailscaleBackend(Shell.run(TS, ["status", "--json"]) ?? "")
         corpDNS = parseCorpDNS(Shell.run(TS, ["debug", "prefs"]) ?? "")
-        controller.setIcon(MeterIcon.dot(color: nsColor(dotColor(for: mullvad.state))))
+        controller.setIcon(MeterIcon.dot(color: nsColor(dotColor(mullvad: mullvad.state, tailscaleRunning: backend == "Running"))))
     }
 
     private func build(_ menu: NSMenu) {
