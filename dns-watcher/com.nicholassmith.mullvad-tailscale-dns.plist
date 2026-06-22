@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Template: install.sh substitutes __SCRIPT__ with the absolute path to
+     mullvad-tailscale-dns-sync.sh in this repo, then bootstraps the agent. -->
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.nicholassmith.mullvad-tailscale-dns</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/zsh</string>
+        <string>__SCRIPT__</string>
+    </array>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+    <key>StandardOutPath</key>
+    <string>/tmp/mullvad-ts-dns.out.log</string>
+    <key>StandardErrorPath</key>
+    <string>/tmp/mullvad-ts-dns.err.log</string>
+</dict>
+</plist>
