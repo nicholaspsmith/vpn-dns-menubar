@@ -155,6 +155,28 @@ open "swiftbar://refreshallplugins"
 
 </details>
 
+## Standalone Swift app
+
+The repo also ships a standalone Swift menu-bar app, `VPNDNSMenuBar`
+(bundle **"VPN & DNS.app"**), built on
+[StatusItemKit](https://github.com/nicholaspsmith/StatusItemKit). It's a
+native AppKit reimplementation of the SwiftBar plugin: it polls
+`mullvad`/`tailscale` every 5s, shows a colored status dot tracking Mullvad
+state, and drops down a three-row menu (accept-dns/MagicDNS state, a Mullvad
+row, and a Tailscale row) plus Start at Login and Quit. All output parsing
+lives in a pure, unit-tested `VPNDNSCore` library.
+
+```sh
+./scripts/build-app.sh          # produces build/VPN & DNS.app (ad-hoc signed)
+open "build/VPN & DNS.app"
+```
+
+Clicking the Mullvad row opens Mullvad's native popover via an AppleScript
+AX-click, so the app needs **Accessibility + Automation** permission granted
+to "VPN & DNS" (you'll be prompted on first use). The SwiftBar plugin remains
+available and unchanged, and the launchd DNS-sync agent under `dns-watcher/`
+is shared and untouched.
+
 ## Uninstall
 
 ```sh
