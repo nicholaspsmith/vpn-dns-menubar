@@ -177,6 +177,17 @@ to "VPN & DNS" (you'll be prompted on first use). The SwiftBar plugin remains
 available and unchanged, and the launchd DNS-sync agent under `dns-watcher/`
 is shared and untouched.
 
+### Start at Login
+
+Two ways to launch it automatically (use **one**, not both, or it may start twice):
+
+- **In-app toggle** — the menu's **Start at Login** item registers the app via
+  `SMAppService` (bundle-ID based, not a LaunchAgent). macOS requires the app to
+  live in `/Applications` or `~/Applications`, so point a symlink there first
+  (e.g. `~/Applications/VPN & DNS.app` → `build/VPN & DNS.app`), then toggle it.
+- **macOS Login Items** — add the app under System Settings → General → Login Items
+  ("Open at Login"). Same effect, and it doesn't require the in-app toggle.
+
 ## Uninstall
 
 ```sh
