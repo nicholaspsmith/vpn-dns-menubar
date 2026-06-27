@@ -58,7 +58,9 @@ NON_ROWS=""; for p in $NONUS_CITIES;   do NON_ROWS+="$(measure "${p%%:*}" "${p##
 if [ "$WAS_CONNECTED" = 1 ]; then "$MULLVAD" connect >/dev/null 2>&1 || true; fi
 
 mkdir -p "$(dirname "$OUT")"
-GEN="$(date +%F)" python3 - "$US_ROWS" "$NON_ROWS" > "$OUT" <<'PY'
+OUT_TMP="$OUT.tmp.$$"
+trap 'rm -f "$OUT_TMP"' EXIT INT TERM
+GEN="$(date +%F)" python3 - "$US_ROWS" "$NON_ROWS" > "$OUT_TMP" <<'PY'
 import os, sys, json
 def parse(block):
     rows=[]
@@ -71,4 +73,14 @@ def parse(block):
 doc = {"generated": os.environ["GEN"], "us": parse(sys.argv[1]), "nonus": parse(sys.argv[2])}
 print(json.dumps(doc, indent=2, ensure_ascii=False))
 PY
-echo "Wrote $OUT" >&2
+
+_us=$(python3 -c "import json,sys; print(len(json.load(open(sys.argv[1])).get('us',[])))" "$OUT_TMP")
+_nonus=$(python3 -c "import json,sys; print(len(json.load(open(sys.argv[1])).get('nonus',[])))" "$OUT_TMP")
+if [ "$_us" = 6 ] && [ "$_nonus" = 15 ]; then
+  mv "$OUT_TMP" "$OUT"
+  echo "Wrote $OUT" >&2
+else
+  echo "ERROR: expected 6 US / 15 non-US entries; got ${_us} US / ${_nonus} non-US — $OUT not updated" >&2
+  rm -f "$OUT_TMP"
+  exit 1
+fi
