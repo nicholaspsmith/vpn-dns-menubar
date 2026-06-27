@@ -152,6 +152,10 @@ final class App: NSObject, NSApplicationDelegate {
         ts.target = self
         menu.addItem(ts)
 
+        let tsToggle = NSMenuItem(title: tailscaleToggleLabel(backend), action: #selector(toggleTailscale), keyEquivalent: "")
+        tsToggle.target = self
+        menu.addItem(tsToggle)
+
         menu.addItem(NSMenuItem.separator())
 
         let model = fastCitiesMenu(store: store, currentRelay: mullvad.relay, now: Date())
@@ -207,6 +211,16 @@ final class App: NSObject, NSApplicationDelegate {
     }
     @objc private func openTailscale() {
         _ = Shell.run("/usr/bin/open", ["-a", "Tailscale"])
+    }
+    @objc private func toggleTailscale() {
+        let action = tailscaleToggle(backend)
+        DispatchQueue.global().async { [weak self] in
+            switch action {
+            case .up: _ = Shell.run(TS, ["up"])
+            case .down: _ = Shell.run(TS, ["down"])
+            }
+            DispatchQueue.main.async { self?.poll() }
+        }
     }
     @objc private func toggleLogin() { LoginItem.toggle() }
 }
