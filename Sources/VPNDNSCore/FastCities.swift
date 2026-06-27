@@ -29,3 +29,70 @@ public func toggleAction(currentRelay: String?, clickedCC: String, clickedCityCo
     }
     return .connect(cc: clickedCC, cityCode: clickedCityCode)
 }
+
+public struct MenuRow: Equatable {
+    public let title: String
+    public let cc: String
+    public let cityCode: String
+    public let isCurrent: Bool
+    public init(title: String, cc: String, cityCode: String, isCurrent: Bool) {
+        self.title = title
+        self.cc = cc
+        self.cityCode = cityCode
+        self.isCurrent = isCurrent
+    }
+}
+
+public struct MenuSection: Equatable {
+    public let header: String
+    public let rows: [MenuRow]
+    public init(header: String, rows: [MenuRow]) {
+        self.header = header
+        self.rows = rows
+    }
+}
+
+public struct FastCitiesMenu: Equatable {
+    public let us: MenuSection
+    public let nonus: MenuSection
+    public let footer: String
+    public init(us: MenuSection, nonus: MenuSection, footer: String) {
+        self.us = us
+        self.nonus = nonus
+        self.footer = footer
+    }
+}
+
+/// Human freshness line for the footer.
+public func freshnessText(_ last: Date?, now: Date) -> String {
+    guard let last = last else { return "measured: seed values" }
+    let secs = Int(now.timeIntervalSince(last))
+    let ago: String
+    if secs < 90 { ago = "just now" }
+    else if secs < 3600 { ago = "\(secs / 60)m ago" }
+    else if secs < 86400 { ago = "\(secs / 3600)h ago" }
+    else { ago = "\(secs / 86400)d ago" }
+    return "measured \(ago) (direct)"
+}
+
+/// Build the two menu sections (top-N cities each) plus the freshness footer.
+public func fastCitiesMenu(store: LatencyStore, currentRelay: String?, now: Date,
+                           topN: Int = 3) -> FastCitiesMenu {
+    func section(_ region: Region, _ header: String) -> MenuSection {
+        let rows = store.topCities(region: region, n: topN).map { relay -> MenuRow in
+            let ms = Int(store.ms(for: relay).rounded())
+            return MenuRow(
+                title: "\(relay.city) — \(ms) ms",
+                cc: relay.cc,
+                cityCode: relay.cityCode,
+                isCurrent: isCurrentCity(relay: currentRelay, cc: relay.cc, cityCode: relay.cityCode)
+            )
+        }
+        return MenuSection(header: header, rows: rows)
+    }
+    return FastCitiesMenu(
+        us: section(.us, "Fastest US (No-ID)"),
+        nonus: section(.nonus, "Fastest Non-US (No-ID · torrent-safe)"),
+        footer: freshnessText(store.lastDirectMeasurement, now: now)
+    )
+}
