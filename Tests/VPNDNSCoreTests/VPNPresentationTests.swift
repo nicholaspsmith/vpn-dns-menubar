@@ -43,4 +43,14 @@ final class VPNPresentationTests: XCTestCase {
     func testGreyWhenMullvadOffAndTailscaleNotRunning() {
         XCTAssertEqual(dotColor(mullvad: .off, tailscaleRunning: false), .grey)
     }
+    func testTailscaleToggleDecision() {
+        XCTAssertEqual(tailscaleToggle("Running"), .down)
+        XCTAssertEqual(tailscaleToggle("Stopped"), .up)
+        XCTAssertEqual(tailscaleToggle("NeedsLogin"), .up)
+        XCTAssertEqual(tailscaleToggle("Unknown"), .up)
+    }
+    func testTailscaleToggleLabel() {
+        XCTAssertEqual(tailscaleToggleLabel("Running"), "Disconnect Tailscale")
+        XCTAssertEqual(tailscaleToggleLabel("Stopped"), "Connect Tailscale")
+    }
 }

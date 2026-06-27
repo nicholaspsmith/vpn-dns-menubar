@@ -53,3 +53,14 @@ public func tailscaleColor(_ backend: String) -> DotColor {
     default: return .grey
     }
 }
+
+public enum TailscaleToggle: Equatable { case up, down }
+
+/// Toggle target for Tailscale: bring it down if it's Running, else bring it up.
+public func tailscaleToggle(_ backend: String) -> TailscaleToggle {
+    backend == "Running" ? .down : .up
+}
+
+public func tailscaleToggleLabel(_ backend: String) -> String {
+    backend == "Running" ? "Disconnect Tailscale" : "Connect Tailscale"
+}
