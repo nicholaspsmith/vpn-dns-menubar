@@ -61,7 +61,7 @@ final class LatencyProbe {
                 defer { self?.gate.signal(); group.leave() }
                 guard let self = self, self.isOff() else { return }
                 let out = Shell.run("/sbin/ping", ["-c", "5", "-i", "0.2", "-t", "5", relay.ip]) ?? ""
-                let ms = parsePingMinRTT(out) ?? 9999
+                guard let ms = parsePingMinRTT(out) else { return }   // failed ping: keep last-good/seed, don't clobber
                 let direct = self.isOff()
                 lock.lock()
                 results.append(CityLatency(cityCode: relay.cityCode, ms: ms, measuredAt: now, direct: direct))
@@ -121,6 +121,8 @@ final class App: NSObject, NSApplicationDelegate {
                 defer { self.mullvadStateLock.unlock() }
                 return self.mullvadIsOff
             },
+            // no-op: StatusItemController rebuilds the menu on each open, so fresh
+            // latencies appear next time the menu is opened.
             onUpdate: { }
         )
         probe.start(interval: 15 * 60)
@@ -193,14 +195,17 @@ final class App: NSObject, NSApplicationDelegate {
     @objc private func toggleCity(_ sender: NSMenuItem) {
         guard let info = sender.representedObject as? [String: String],
               let cc = info["cc"], let city = info["city"] else { return }
-        switch toggleAction(currentRelay: mullvad.relay, clickedCC: cc, clickedCityCode: city) {
-        case .disconnect:
-            _ = Shell.run(MULLVAD, ["disconnect"])
-        case .connect(let cc, let city):
-            _ = Shell.run(MULLVAD, ["relay", "set", "location", cc, city])
-            _ = Shell.run(MULLVAD, ["connect"])
+        let action = toggleAction(currentRelay: mullvad.relay, clickedCC: cc, clickedCityCode: city)
+        DispatchQueue.global().async { [weak self] in
+            switch action {
+            case .disconnect:
+                _ = Shell.run(MULLVAD, ["disconnect"])
+            case .connect(let cc, let city):
+                _ = Shell.run(MULLVAD, ["relay", "set", "location", cc, city])
+                _ = Shell.run(MULLVAD, ["connect"])
+            }
+            DispatchQueue.main.async { self?.poll() }
         }
-        poll()
     }
 
     // Open Mullvad's native popover by AX-clicking its status item (inlined from
