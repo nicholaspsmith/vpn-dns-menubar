@@ -1,28 +1,154 @@
 {
   "generated": "2026-06-26",
   "us": [
-    {"city":"Washington DC","cc":"us","cityCode":"was","ip":"185.213.193.127","seedMs":25},
-    {"city":"Secaucus, NJ","cc":"us","cityCode":"uyk","ip":"104.36.50.33","seedMs":28},
-    {"city":"Boston, MA","cc":"us","cityCode":"bos","ip":"43.225.189.131","seedMs":35},
-    {"city":"Chicago, IL","cc":"us","cityCode":"chi","ip":"87.249.134.1","seedMs":36},
-    {"city":"Detroit, MI","cc":"us","cityCode":"det","ip":"185.141.119.131","seedMs":39},
-    {"city":"Seattle, WA","cc":"us","cityCode":"sea","ip":"138.199.43.78","seedMs":73}
+    {
+      "city": "Washington DC",
+      "cc": "us",
+      "cityCode": "was",
+      "ip": "185.213.193.3",
+      "seedMs": 24
+    },
+    {
+      "city": "Secaucus, NJ",
+      "cc": "us",
+      "cityCode": "uyk",
+      "ip": "104.36.50.3",
+      "seedMs": 28
+    },
+    {
+      "city": "Boston, MA",
+      "cc": "us",
+      "cityCode": "bos",
+      "ip": "43.225.189.131",
+      "seedMs": 34
+    },
+    {
+      "city": "Chicago, IL",
+      "cc": "us",
+      "cityCode": "chi",
+      "ip": "87.249.134.1",
+      "seedMs": 34
+    },
+    {
+      "city": "Detroit, MI",
+      "cc": "us",
+      "cityCode": "det",
+      "ip": "185.141.119.131",
+      "seedMs": 47
+    },
+    {
+      "city": "Seattle, WA",
+      "cc": "us",
+      "cityCode": "sea",
+      "ip": "138.199.43.91",
+      "seedMs": 82
+    }
   ],
   "nonus": [
-    {"city":"Montreal","cc":"ca","cityCode":"mtr","ip":"146.70.198.66","seedMs":37},
-    {"city":"Toronto","cc":"ca","cityCode":"tor","ip":"178.249.214.2","seedMs":43},
-    {"city":"Queretaro","cc":"mx","cityCode":"qro","ip":"149.88.22.129","seedMs":51},
-    {"city":"Vancouver","cc":"ca","cityCode":"van","ip":"104.193.135.100","seedMs":77},
-    {"city":"Calgary","cc":"ca","cityCode":"yyc","ip":"38.240.225.68","seedMs":89},
-    {"city":"Bogota","cc":"co","cityCode":"bog","ip":"154.47.16.34","seedMs":89},
-    {"city":"Lima","cc":"pe","cityCode":"lim","ip":"95.173.223.159","seedMs":108},
-    {"city":"Tirana","cc":"al","cityCode":"tia","ip":"103.124.165.2","seedMs":127},
-    {"city":"Belgrade","cc":"rs","cityCode":"beg","ip":"146.70.193.2","seedMs":128},
-    {"city":"Santiago","cc":"cl","cityCode":"scl","ip":"149.88.104.15","seedMs":132},
-    {"city":"Kyiv","cc":"ua","cityCode":"iev","ip":"149.102.240.66","seedMs":141},
-    {"city":"Tel Aviv","cc":"il","cityCode":"tlv","ip":"169.150.227.197","seedMs":159},
-    {"city":"Buenos Aires","cc":"ar","cityCode":"bue","ip":"149.22.83.31","seedMs":164},
-    {"city":"Bangkok","cc":"th","cityCode":"bkk","ip":"156.59.50.194","seedMs":252},
-    {"city":"Manila","cc":"ph","cityCode":"mnl","ip":"156.59.127.194","seedMs":263}
+    {
+      "city": "Montreal",
+      "cc": "ca",
+      "cityCode": "mtr",
+      "ip": "146.70.198.66",
+      "seedMs": 35
+    },
+    {
+      "city": "Toronto",
+      "cc": "ca",
+      "cityCode": "tor",
+      "ip": "178.249.214.2",
+      "seedMs": 44
+    },
+    {
+      "city": "Queretaro",
+      "cc": "mx",
+      "cityCode": "qro",
+      "ip": "149.88.22.129",
+      "seedMs": 70
+    },
+    {
+      "city": "Vancouver",
+      "cc": "ca",
+      "cityCode": "van",
+      "ip": "104.193.135.196",
+      "seedMs": 88
+    },
+    {
+      "city": "Calgary",
+      "cc": "ca",
+      "cityCode": "yyc",
+      "ip": "38.240.225.36",
+      "seedMs": 88
+    },
+    {
+      "city": "Bogota",
+      "cc": "co",
+      "cityCode": "bog",
+      "ip": "154.47.16.34",
+      "seedMs": 89
+    },
+    {
+      "city": "Lima",
+      "cc": "pe",
+      "cityCode": "lim",
+      "ip": "95.173.223.130",
+      "seedMs": 109
+    },
+    {
+      "city": "Tirana",
+      "cc": "al",
+      "cityCode": "tia",
+      "ip": "103.124.165.2",
+      "seedMs": 126
+    },
+    {
+      "city": "Belgrade",
+      "cc": "rs",
+      "cityCode": "beg",
+      "ip": "146.70.193.2",
+      "seedMs": 130
+    },
+    {
+      "city": "Santiago",
+      "cc": "cl",
+      "cityCode": "scl",
+      "ip": "149.88.104.2",
+      "seedMs": 133
+    },
+    {
+      "city": "Kyiv",
+      "cc": "ua",
+      "cityCode": "iev",
+      "ip": "149.102.240.79",
+      "seedMs": 148
+    },
+    {
+      "city": "Tel Aviv",
+      "cc": "il",
+      "cityCode": "tlv",
+      "ip": "169.150.227.197",
+      "seedMs": 159
+    },
+    {
+      "city": "Buenos Aires",
+      "cc": "ar",
+      "cityCode": "bue",
+      "ip": "149.22.83.2",
+      "seedMs": 168
+    },
+    {
+      "city": "Manila",
+      "cc": "ph",
+      "cityCode": "mnl",
+      "ip": "129.227.118.162",
+      "seedMs": 246
+    },
+    {
+      "city": "Bangkok",
+      "cc": "th",
+      "cityCode": "bkk",
+      "ip": "156.59.50.194",
+      "seedMs": 278
+    }
   ]
 }
