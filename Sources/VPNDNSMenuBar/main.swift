@@ -47,7 +47,7 @@ final class LatencyProbe {
     }
 
     private func runProbe() {
-        defer { running = false }
+        defer { DispatchQueue.main.async { [weak self] in self?.running = false } }
         let relays = store.pool.us + store.pool.nonus
         let group = DispatchGroup()
         let lock = NSLock()
@@ -88,6 +88,8 @@ final class App: NSObject, NSApplicationDelegate {
     private var corpDNS = false
     private let store: LatencyStore
     private var probe: LatencyProbe!
+    private let mullvadStateLock = NSLock()
+    private var mullvadIsOff = false   // guarded by mullvadStateLock; read by probe off-main
 
     override init() {
         let pool: CandidatePool
@@ -113,7 +115,12 @@ final class App: NSObject, NSApplicationDelegate {
         controller.start()
         probe = LatencyProbe(
             store: store,
-            isOff: { [weak self] in self?.mullvad.state == .off },
+            isOff: { [weak self] in
+                guard let self = self else { return false }
+                self.mullvadStateLock.lock()
+                defer { self.mullvadStateLock.unlock() }
+                return self.mullvadIsOff
+            },
             onUpdate: { }
         )
         probe.start(interval: 15 * 60)
@@ -122,6 +129,9 @@ final class App: NSObject, NSApplicationDelegate {
     private func poll() {
         let previous = mullvad.state
         mullvad = parseMullvadStatus(Shell.run(MULLVAD, ["status"]) ?? "")
+        mullvadStateLock.lock()
+        mullvadIsOff = (mullvad.state == .off)
+        mullvadStateLock.unlock()
         if previous != .off && mullvad.state == .off { probe?.probeIfOff() }
         backend = parseTailscaleBackend(Shell.run(TS, ["status", "--json"]) ?? "")
         corpDNS = parseCorpDNS(Shell.run(TS, ["debug", "prefs"]) ?? "")
