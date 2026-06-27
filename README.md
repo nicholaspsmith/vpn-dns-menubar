@@ -34,6 +34,24 @@ The two bottom rows' **labels are the live status**, and clicking them acts: Mul
 opens its real popover (location picker, etc.); Tailscale opens its app. Text is
 green when connected/running and grey when off/stopped.
 
+Below the Mullvad and Tailscale rows the menu shows two **fastest-city sections**:
+"Fastest US (No-ID)" and "Fastest Non-US (No-ID · torrent-safe)" — the top-3 cities
+from the candidate list ranked by latency. Clicking a city connects Mullvad to that
+city (setting the relay location then running `mullvad connect`); clicking the
+currently-active city disconnects (toggle behavior). A checkmark (✓) marks the city
+you're connected to. A freshness footer shows when the latencies were last measured.
+
+Latency is measured by direct ICMP pings (`/sbin/ping`) only while Mullvad is
+**disconnected** — pinging through the tunnel is unreliable. On first run, and until
+a live measurement completes, the app falls back to seed values baked into
+`Resources/bundle/candidates.json`. Measurements persist across restarts in
+`~/Library/Application Support/VPNDNSMenuBar/latency.json`. To refresh the
+candidate list (update which cities qualify under No-ID rules):
+
+```sh
+scripts/refresh-candidates.sh
+```
+
 ## Requirements
 
 - macOS 11+ (the dot uses an SF Symbol)
