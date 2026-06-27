@@ -1065,6 +1065,99 @@ git commit -m "feat: fastest No-ID city sections with toggle + latency probe"
 
 ---
 
+### Task 8: Tailscale on/off toggle menu item (added mid-execution per user request)
+
+**Files:**
+- Modify: `Sources/VPNDNSCore/VPNPresentation.swift` (append the toggle helpers)
+- Modify: `Sources/VPNDNSMenuBar/main.swift` (add the menu item + handler)
+- Test: `Tests/VPNDNSCoreTests/VPNPresentationTests.swift` (append cases)
+
+**Interfaces:**
+- Consumes: the existing `backend` string (from `parseTailscaleBackend`); `Shell`, `TS` const in main.swift.
+- Produces:
+  - `enum TailscaleToggle: Equatable { case up, down }`
+  - `func tailscaleToggle(_ backend: String) -> TailscaleToggle` — `.down` iff backend == "Running", else `.up`.
+  - `func tailscaleToggleLabel(_ backend: String) -> String` — "Disconnect Tailscale" iff Running, else "Connect Tailscale".
+
+**Design:** a dedicated menu item placed directly under the existing "Tailscale: <state>" status row (which still opens the app). Dynamic label reflects the action. The handler runs `tailscale up`/`down` on a background queue (so a blocking `tailscale up` can't freeze the menu-bar run loop), then re-polls on the main thread.
+
+- [ ] **Step 1: Write the failing test** — append to `Tests/VPNDNSCoreTests/VPNPresentationTests.swift` inside the class:
+
+```swift
+    func testTailscaleToggleDecision() {
+        XCTAssertEqual(tailscaleToggle("Running"), .down)
+        XCTAssertEqual(tailscaleToggle("Stopped"), .up)
+        XCTAssertEqual(tailscaleToggle("NeedsLogin"), .up)
+        XCTAssertEqual(tailscaleToggle("Unknown"), .up)
+    }
+    func testTailscaleToggleLabel() {
+        XCTAssertEqual(tailscaleToggleLabel("Running"), "Disconnect Tailscale")
+        XCTAssertEqual(tailscaleToggleLabel("Stopped"), "Connect Tailscale")
+    }
+```
+
+- [ ] **Step 2: Run test to verify it fails**
+
+Run: `swift test --filter VPNPresentationTests`
+Expected: FAIL — `cannot find 'tailscaleToggle' in scope`.
+
+- [ ] **Step 3: Write minimal implementation** — append to `Sources/VPNDNSCore/VPNPresentation.swift`:
+
+```swift
+public enum TailscaleToggle: Equatable { case up, down }
+
+/// Toggle target for Tailscale: bring it down if it's Running, else bring it up.
+public func tailscaleToggle(_ backend: String) -> TailscaleToggle {
+    backend == "Running" ? .down : .up
+}
+
+public func tailscaleToggleLabel(_ backend: String) -> String {
+    backend == "Running" ? "Disconnect Tailscale" : "Connect Tailscale"
+}
+```
+
+- [ ] **Step 4: Run test to verify it passes**
+
+Run: `swift test --filter VPNPresentationTests` → PASS. Then full `swift test` → all green, pristine.
+
+- [ ] **Step 5: Wire the menu item in `main.swift`**
+
+In `build(_:)`, immediately AFTER the existing Tailscale status row is added (the `ts` item with `openTailscale`), and before the separator that follows, add:
+
+```swift
+        let tsToggle = NSMenuItem(title: tailscaleToggleLabel(backend), action: #selector(toggleTailscale), keyEquivalent: "")
+        tsToggle.target = self
+        menu.addItem(tsToggle)
+```
+
+Add this handler to `App` (next to `toggleCity`):
+
+```swift
+    @objc private func toggleTailscale() {
+        let action = tailscaleToggle(backend)
+        DispatchQueue.global().async { [weak self] in
+            switch action {
+            case .up: _ = Shell.run(TS, ["up"])
+            case .down: _ = Shell.run(TS, ["down"])
+            }
+            DispatchQueue.main.async { self?.poll() }
+        }
+    }
+```
+
+- [ ] **Step 6: Build + verify**
+
+Run: `swift test` (all green) → `scripts/build-app.sh` (`==> Built build/VPN & DNS.app`). Do NOT run live `tailscale up/down` from here (it would change the machine's Tailscale state); the toggle decision is unit-tested and the handler is a thin dispatch. Visual click-through is a human check.
+
+- [ ] **Step 7: Commit (checkpoint)**
+
+```bash
+git add Sources/VPNDNSCore/VPNPresentation.swift Tests/VPNDNSCoreTests/VPNPresentationTests.swift Sources/VPNDNSMenuBar/main.swift
+git commit -m "feat: Tailscale on/off toggle menu item"
+```
+
+---
+
 ## Self-Review (completed during planning)
 
 - **Spec coverage:** Two sections (Tasks 5, 7) ✓; US no-age-verif from No-ID lists (Task 2 data) ✓; non-US no-age-verif + torrent filter incl. NZ exclusion (Task 2 data, Task 6 script) ✓; click-to-toggle (Tasks 3, 7) ✓; dynamic/opportunistic-while-off probe (Task 7) ✓; cached + seeded + persisted (Tasks 2, 4) ✓; freshness footer (Task 5) ✓; refresh script (Task 6) ✓; tests (Tasks 1–5) ✓.
