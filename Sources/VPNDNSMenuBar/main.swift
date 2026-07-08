@@ -90,6 +90,8 @@ final class App: NSObject, NSApplicationDelegate {
     private var probe: LatencyProbe!
     private let mullvadStateLock = NSLock()
     private var mullvadIsOff = false   // guarded by mullvadStateLock; read by probe off-main
+    private let pollQueue = DispatchQueue(label: "vpndns.poll")
+    private var pollInFlight = false   // main-thread only; drops overlapping polls
 
     override init() {
         let pool: CandidatePool
@@ -128,16 +130,33 @@ final class App: NSObject, NSApplicationDelegate {
         probe.start(interval: 15 * 60)
     }
 
+    // Invoked on the main thread by StatusItemController's timer. The blocking
+    // `mullvad`/`tailscale` CLI calls run on a background queue so a slow or hung
+    // subprocess can never freeze the run loop (a wedged main thread is exactly
+    // what stops the status-item menu from opening on click); state + icon are
+    // committed back on main, so build()/menuNeedsUpdate read only main-written
+    // state and there's no data race. Overlapping ticks are dropped.
     private func poll() {
-        let previous = mullvad.state
-        mullvad = parseMullvadStatus(Shell.run(MULLVAD, ["status"]) ?? "")
-        mullvadStateLock.lock()
-        mullvadIsOff = (mullvad.state == .off)
-        mullvadStateLock.unlock()
-        if previous != .off && mullvad.state == .off { probe?.probeIfOff() }
-        backend = parseTailscaleBackend(Shell.run(TS, ["status", "--json"]) ?? "")
-        corpDNS = parseCorpDNS(Shell.run(TS, ["debug", "prefs"]) ?? "")
-        controller.setIcon(MeterIcon.dot(color: nsColor(dotColor(mullvad: mullvad.state, tailscaleRunning: backend == "Running"))))
+        if pollInFlight { return }
+        pollInFlight = true
+        pollQueue.async { [weak self] in
+            guard let self = self else { return }
+            let mv = parseMullvadStatus(Shell.run(MULLVAD, ["status"]) ?? "")
+            let be = parseTailscaleBackend(Shell.run(TS, ["status", "--json"]) ?? "")
+            let dns = parseCorpDNS(Shell.run(TS, ["debug", "prefs"]) ?? "")
+            DispatchQueue.main.async {
+                self.pollInFlight = false
+                let previous = self.mullvad.state
+                self.mullvad = mv
+                self.backend = be
+                self.corpDNS = dns
+                self.mullvadStateLock.lock()
+                self.mullvadIsOff = (mv.state == .off)
+                self.mullvadStateLock.unlock()
+                if previous != .off && mv.state == .off { self.probe?.probeIfOff() }
+                self.controller.setIcon(MeterIcon.dot(color: nsColor(dotColor(mullvad: mv.state, tailscaleRunning: be == "Running"))))
+            }
+        }
     }
 
     private func build(_ menu: NSMenu) {
