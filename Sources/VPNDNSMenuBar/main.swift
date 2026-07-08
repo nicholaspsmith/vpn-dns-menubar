@@ -130,6 +130,15 @@ final class App: NSObject, NSApplicationDelegate {
         probe.start(interval: 15 * 60)
     }
 
+    // True iff the Tailscale GUI app is already running. We must NOT invoke the
+    // Tailscale binary (`status` / `debug prefs`) when it isn't: with no running
+    // instance, that binary LAUNCHES the Tailscale GUI, so polling it every 5s
+    // silently re-opens Tailscale after the user has quit it. Checked on the main
+    // thread (AppKit) and passed into the background poll.
+    private func tailscaleAppRunning() -> Bool {
+        !NSRunningApplication.runningApplications(withBundleIdentifier: "io.tailscale.ipn.macsys").isEmpty
+    }
+
     // Invoked on the main thread by StatusItemController's timer. The blocking
     // `mullvad`/`tailscale` CLI calls run on a background queue so a slow or hung
     // subprocess can never freeze the run loop (a wedged main thread is exactly
@@ -139,11 +148,14 @@ final class App: NSObject, NSApplicationDelegate {
     private func poll() {
         if pollInFlight { return }
         pollInFlight = true
+        let tsRunning = tailscaleAppRunning()   // on main; guards the GUI-launching calls below
         pollQueue.async { [weak self] in
             guard let self = self else { return }
             let mv = parseMullvadStatus(Shell.run(MULLVAD, ["status"]) ?? "")
-            let be = parseTailscaleBackend(Shell.run(TS, ["status", "--json"]) ?? "")
-            let dns = parseCorpDNS(Shell.run(TS, ["debug", "prefs"]) ?? "")
+            // Only query Tailscale when its app is already up — invoking the binary
+            // while it's quit would relaunch the GUI. When down, report not running.
+            let be = tsRunning ? parseTailscaleBackend(Shell.run(TS, ["status", "--json"]) ?? "") : "Not running"
+            let dns = tsRunning ? parseCorpDNS(Shell.run(TS, ["debug", "prefs"]) ?? "") : false
             DispatchQueue.main.async {
                 self.pollInFlight = false
                 let previous = self.mullvad.state
