@@ -1,0 +1,2 @@
+# Menu-bar restart action for the qbt tunnel — exactly one command, nothing else.
+nicholassmith ALL=(root) NOPASSWD: /bin/launchctl kickstart -k system/com.nicholassmith.qbt-wireguard

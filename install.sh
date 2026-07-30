@@ -36,3 +36,8 @@ echo
 echo "Done. Hide the native Mullvad/Tailscale icons (e.g. with Ice) so this is the"
 echo "only one visible. SwiftBar needs Accessibility + Automation permission for the"
 echo "Mullvad row's native popover. See README.md for details and uninstall steps."
+
+echo
+echo "Optional: dedicated always-on Mullvad tunnel for qBittorrent:"
+echo "  brew install wireguard-go wireguard-tools jq   # once"
+echo "  sudo $SRC_DIR/qbt-tunnel/install-qbt-tunnel.sh"
