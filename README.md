@@ -206,6 +206,67 @@ Two ways to launch it automatically (use **one**, not both, or it may start twic
 - **macOS Login Items** — add the app under System Settings → General → Login Items
   ("Open at Login"). Same effect, and it doesn't require the in-app toggle.
 
+## qBittorrent dedicated tunnel
+
+An always-on Mullvad WireGuard tunnel that **only qBittorrent uses**, independent
+of the Mullvad app: `wireguard-go` on a pinned `utun100` with a *scoped-only*
+default route (the system routing table is untouched — only sockets explicitly
+bound to `utun100` use it). When the Mullvad app is connected, the tunnel's
+encrypted UDP rides inside it (like multihop); when disconnected, it goes
+straight out, still encrypted. Torrents survive both transitions, and every
+failure mode fails **closed**: no tunnel → qBittorrent has nothing to bind →
+transfers stall instead of leaking. Registers its own Mullvad device (1 of the
+account's 5 slots) and pins the lowest-latency relay from a fixed list of
+non-US, torrent-lenient jurisdictions.
+
+```sh
+brew install wireguard-go wireguard-tools jq   # once
+# quit qBittorrent first so the binding can be written
+sudo qbt-tunnel/install-qbt-tunnel.sh
+```
+
+The installer registers the device via Mullvad's API (account number read from
+the local `mullvad` CLI; the private key never leaves the machine), pins a
+relay, loads the `com.nicholassmith.qbt-wireguard` LaunchDaemon, installs a
+single-command sudoers rule for the menu's restart action, and double-key binds
+qBittorrent (`Session\Interface=utun100` **and** `Session\InterfaceAddress=<10.x>`,
+so a foreign interface that happens to claim `utun100` still fails closed).
+
+**Manual registration fallback** (if the API flow breaks): log into mullvad.net →
+WireGuard configuration → generate a config for a new device, then put its
+`PrivateKey` into `/etc/wireguard-qbt/qbt.conf` under `[Interface]` (nothing
+else — `Address`/`DNS`/`MTU` are wg-quick keys and break `wg setconf`), write
+`/etc/wireguard-qbt/device.json` as
+`{"name":"<device>","pubkey":"<pub>","ipv4_address":"10.x.y.z"}`, and run
+`sudo qbt-tunnel/pin-qbt-relay.sh`.
+
+**Operations**
+- Pinned relay died → torrents stall (safe); `sudo qbt-tunnel/pin-qbt-relay.sh`
+  re-probes and re-pins.
+- Logs: `/var/log/qbt-wireguard.log`.
+- Menu row: `●  via <relay>` (confirmed exit) · `● tunnel up · qbt not running` ·
+  `◐ tunnel up · qbt not bound` · `○ tunnel down — torrents stalled (safe)`.
+  **Restart qBittorrent Tunnel** kicks the daemon (passwordless via
+  `/etc/sudoers.d/qbt-tunnel`).
+
+**Known limitations** (by design; the fix would be a gluetun/Docker setup):
+- Tracker *hostname* DNS lookups use the system resolver — with the Mullvad app
+  off, the ISP can see tracker domains (announces/peers stay in-tunnel).
+- qBittorrent's GUI-level HTTP (RSS fetches, update checks) ignores the
+  interface binding and follows the system route.
+- One static relay (no auto-failover) and a static device key (no rotation).
+
+### Uninstall (qbt tunnel only)
+
+```sh
+sudo launchctl bootout system/com.nicholassmith.qbt-wireguard
+sudo rm -rf /Library/LaunchDaemons/com.nicholassmith.qbt-wireguard.plist \
+    /usr/local/libexec/qbt-tunnel /etc/wireguard-qbt /etc/sudoers.d/qbt-tunnel
+```
+
+Then set qBittorrent's Preferences → Advanced → Network interface back to "Any"
+and delete the device on mullvad.net (frees the slot).
+
 ## Uninstall
 
 ```sh
