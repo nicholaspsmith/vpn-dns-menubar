@@ -4,6 +4,9 @@ import VPNDNSCore
 
 private let MULLVAD = "/usr/local/bin/mullvad"
 private let TS = "/Applications/Tailscale.app/Contents/MacOS/Tailscale"
+private let QBT_IFACE = "utun100"
+private let QBT_DEVJSON = "/etc/wireguard-qbt/device.json"
+private let QBT_GATEWAY = "10.64.0.1"
 
 private func nsColor(_ c: DotColor) -> NSColor {
     switch c {
@@ -86,6 +89,9 @@ final class App: NSObject, NSApplicationDelegate {
     private var mullvad = MullvadStatus(state: .off, relay: nil, location: nil)
     private var backend = "Unknown"
     private var corpDNS = false
+    private var qbtState: QbtTunnelState = .notInstalled
+    private var qbtLastRelay: String?     // main-thread; last confirmed exit hostname
+    private var pollTick = 0              // main-thread; drives the every-12th curl
     private let store: LatencyStore
     private var probe: LatencyProbe!
     private let mullvadStateLock = NSLock()
@@ -149,6 +155,9 @@ final class App: NSObject, NSApplicationDelegate {
         if pollInFlight { return }
         pollInFlight = true
         let tsRunning = tailscaleAppRunning()   // on main; guards the GUI-launching calls below
+        let tick = pollTick
+        pollTick += 1
+        let lastRelay = qbtLastRelay
         pollQueue.async { [weak self] in
             guard let self = self else { return }
             let mv = parseMullvadStatus(Shell.run(MULLVAD, ["status"]) ?? "")
@@ -156,12 +165,15 @@ final class App: NSObject, NSApplicationDelegate {
             // while it's quit would relaunch the GUI. When down, report not running.
             let be = tsRunning ? parseTailscaleBackend(Shell.run(TS, ["status", "--json"]) ?? "") : "Not running"
             let dns = tsRunning ? parseCorpDNS(Shell.run(TS, ["debug", "prefs"]) ?? "") : false
+            let qbt = self.pollQbtBlocking(tick: tick, lastRelay: lastRelay)
             DispatchQueue.main.async {
                 self.pollInFlight = false
                 let previous = self.mullvad.state
                 self.mullvad = mv
                 self.backend = be
                 self.corpDNS = dns
+                self.qbtState = qbt.0
+                self.qbtLastRelay = qbt.1
                 self.mullvadStateLock.lock()
                 self.mullvadIsOff = (mv.state == .off)
                 self.mullvadStateLock.unlock()
@@ -169,6 +181,37 @@ final class App: NSObject, NSApplicationDelegate {
                 self.controller.setIcon(MeterIcon.dot(color: nsColor(dotColor(mullvad: mv.state, tailscaleRunning: be == "Running"))))
             }
         }
+    }
+
+    // Runs on pollQueue (never main). Cheap local checks every tick; the exit-IP
+    // curl only every 12th tick (~60s) or until a relay name is first learned.
+    private func pollQbtBlocking(tick: Int, lastRelay: String?) -> (QbtTunnelState, String?) {
+        guard let devJson = try? String(contentsOfFile: QBT_DEVJSON, encoding: .utf8),
+              let dev = parseQbtDevice(devJson) else { return (.notInstalled, nil) }
+        let ifOut = Shell.run("/sbin/ifconfig", [QBT_IFACE], timeout: 3) ?? ""
+        let ifaceUp = parseIfconfigHasAddress(ifOut, address: dev.address)
+        var alive = false
+        if ifaceUp {
+            let ping = Shell.run("/sbin/ping", ["-q", "-c", "1", "-t", "2", "-b", QBT_IFACE, QBT_GATEWAY], timeout: 4) ?? ""
+            alive = parsePingMinRTT(ping) != nil
+        }
+        var relay = lastRelay
+        if alive && (relay == nil || tick % 12 == 0) {
+            let json = Shell.run("/usr/bin/curl",
+                ["--interface", QBT_IFACE, "--max-time", "3", "-s", "https://am.i.mullvad.net/json"],
+                timeout: 6) ?? ""
+            if let fresh = parseExitHostname(json) { relay = fresh }
+        }
+        let running = !(Shell.run("/usr/bin/pgrep", ["-x", "qbittorrent"], timeout: 3) ?? "")
+            .trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        var listening = false
+        if running {
+            let lsof = Shell.run("/usr/sbin/lsof",
+                ["-nP", "-a", "-c", "qbittorre", "-iTCP", "-sTCP:LISTEN"], timeout: 5) ?? ""
+            listening = parseQbtListening(lsof, address: dev.address)
+        }
+        return (deriveQbtState(installed: true, ifaceUp: ifaceUp, alive: alive,
+                               qbtRunning: running, qbtListening: listening, relay: relay), relay)
     }
 
     private func build(_ menu: NSMenu) {
@@ -188,6 +231,16 @@ final class App: NSObject, NSApplicationDelegate {
         let tsToggle = NSMenuItem(title: tailscaleToggleLabel(backend), action: #selector(toggleTailscale), keyEquivalent: "")
         tsToggle.target = self
         menu.addItem(tsToggle)
+
+        if qbtState != .notInstalled {
+            menu.addItem(NSMenuItem.separator())
+            let qbt = NSMenuItem(title: qbtRowLabel(qbtState), action: nil, keyEquivalent: "")
+            qbt.isEnabled = false
+            menu.addItem(qbt)
+            let restart = NSMenuItem(title: "Restart qBittorrent Tunnel", action: #selector(restartQbtTunnel), keyEquivalent: "")
+            restart.target = self
+            menu.addItem(restart)
+        }
 
         menu.addItem(NSMenuItem.separator())
 
@@ -255,6 +308,16 @@ final class App: NSObject, NSApplicationDelegate {
             case .up: _ = Shell.run(TS, ["up"])
             case .down: _ = Shell.run(TS, ["down"])
             }
+            DispatchQueue.main.async { self?.poll() }
+        }
+    }
+    // sudo -n: fail instead of prompting (a GUI app can't answer); the
+    // /etc/sudoers.d/qbt-tunnel rule must match this command exactly.
+    @objc private func restartQbtTunnel() {
+        DispatchQueue.global().async { [weak self] in
+            _ = Shell.run("/usr/bin/sudo",
+                ["-n", "/bin/launchctl", "kickstart", "-k", "system/com.nicholassmith.qbt-wireguard"],
+                timeout: 15)
             DispatchQueue.main.async { self?.poll() }
         }
     }
