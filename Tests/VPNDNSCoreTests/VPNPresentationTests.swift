@@ -8,24 +8,25 @@ final class VPNPresentationTests: XCTestCase {
         XCTAssertEqual(dotColor(for: .blocked), .red)
         XCTAssertEqual(dotColor(for: .off), .grey)
     }
+    // Rows sit under "Mullvad"/"Tailscale" group headers, so labels carry no prefix.
     func testMullvadRowLabel() {
         XCTAssertEqual(
             mullvadRowLabel(MullvadStatus(state: .connected, relay: "us-bos-wg-001", location: "X")),
-            "Mullvad: Connected — us-bos-wg-001"
+            "Connected — us-bos-wg-001"
         )
         XCTAssertEqual(
             mullvadRowLabel(MullvadStatus(state: .off, relay: nil, location: "United States")),
-            "Mullvad: Off — United States"
+            "Off — United States"
         )
         XCTAssertEqual(
             mullvadRowLabel(MullvadStatus(state: .off, relay: nil, location: nil)),
-            "Mullvad: Off"
+            "Off"
         )
     }
     func testOtherLabels() {
         XCTAssertEqual(acceptDNSLabel(true), "accept-dns (MagicDNS): ON")
         XCTAssertEqual(acceptDNSLabel(false), "accept-dns (MagicDNS): OFF")
-        XCTAssertEqual(tailscaleRowLabel("Running"), "Tailscale: Running")
+        XCTAssertEqual(tailscaleRowLabel("Running"), "Status: Running")
         XCTAssertEqual(tailscaleColor("Running"), .green)
         XCTAssertEqual(tailscaleColor("Stopped"), .grey)
     }
