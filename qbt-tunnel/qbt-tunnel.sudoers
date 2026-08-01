@@ -1,2 +1,4 @@
-# Menu-bar restart action for the qbt tunnel — exactly one command, nothing else.
+# Menu-bar actions for the qbt tunnel. Both targets are root-owned files the
+# user cannot modify (never point NOPASSWD at anything user-writable).
 nicholassmith ALL=(root) NOPASSWD: /bin/launchctl kickstart -k system/com.nicholassmith.qbt-wireguard
+nicholassmith ALL=(root) NOPASSWD: /usr/local/libexec/qbt-tunnel/pin-qbt-relay.sh
