@@ -217,26 +217,34 @@ final class App: NSObject, NSApplicationDelegate {
                                qbtRunning: running, qbtListening: listening, relay: relay), relay)
     }
 
+    private func addGroupHeader(_ menu: NSMenu, _ title: String) {
+        let header = NSMenuItem(title: title, action: nil, keyEquivalent: "")
+        header.isEnabled = false
+        menu.addItem(header)
+    }
+
+    // Two headed groups: everything Mullvad (status, split tunnel, relay
+    // pickers, the qbt tunnel — a Mullvad device), then everything Tailscale
+    // (status, toggle, accept-dns — a Tailscale pref), then app items.
     private func build(_ menu: NSMenu) {
-        let dns = NSMenuItem(title: acceptDNSLabel(corpDNS), action: nil, keyEquivalent: "")
-        dns.isEnabled = false
-        menu.addItem(dns)
-        menu.addItem(NSMenuItem.separator())
+        addGroupHeader(menu, "Mullvad")
 
         let mv = NSMenuItem(title: mullvadRowLabel(mullvad), action: #selector(openMullvad), keyEquivalent: "")
         mv.target = self
         menu.addItem(mv)
 
-        let ts = NSMenuItem(title: tailscaleRowLabel(backend), action: #selector(openTailscale), keyEquivalent: "")
-        ts.target = self
-        menu.addItem(ts)
+        menu.addItem(buildSplitTunnelItem())
 
-        let tsToggle = NSMenuItem(title: tailscaleToggleLabel(backend), action: #selector(toggleTailscale), keyEquivalent: "")
-        tsToggle.target = self
-        menu.addItem(tsToggle)
+        let model = fastCitiesMenu(store: store, currentRelay: mullvad.relay, now: Date())
+        addFastSection(menu, model.us)
+        addFastSection(menu, model.nonus)
+        if !model.us.rows.isEmpty || !model.nonus.rows.isEmpty {
+            let foot = NSMenuItem(title: model.footer, action: nil, keyEquivalent: "")
+            foot.isEnabled = false
+            menu.addItem(foot)
+        }
 
         if qbtState != .notInstalled {
-            menu.addItem(NSMenuItem.separator())
             let qbt = NSMenuItem(title: qbtRowLabel(qbtState), action: nil, keyEquivalent: "")
             qbt.isEnabled = false
             menu.addItem(qbt)
@@ -246,19 +254,21 @@ final class App: NSObject, NSApplicationDelegate {
         }
 
         menu.addItem(NSMenuItem.separator())
-        menu.addItem(buildSplitTunnelItem())
+        addGroupHeader(menu, "Tailscale")
+
+        let ts = NSMenuItem(title: tailscaleRowLabel(backend), action: #selector(openTailscale), keyEquivalent: "")
+        ts.target = self
+        menu.addItem(ts)
+
+        let tsToggle = NSMenuItem(title: tailscaleToggleLabel(backend), action: #selector(toggleTailscale), keyEquivalent: "")
+        tsToggle.target = self
+        menu.addItem(tsToggle)
+
+        let dns = NSMenuItem(title: acceptDNSLabel(corpDNS), action: nil, keyEquivalent: "")
+        dns.isEnabled = false
+        menu.addItem(dns)
 
         menu.addItem(NSMenuItem.separator())
-
-        let model = fastCitiesMenu(store: store, currentRelay: mullvad.relay, now: Date())
-        addFastSection(menu, model.us)
-        addFastSection(menu, model.nonus)
-        if !model.us.rows.isEmpty || !model.nonus.rows.isEmpty {
-            let foot = NSMenuItem(title: model.footer, action: nil, keyEquivalent: "")
-            foot.isEnabled = false
-            menu.addItem(foot)
-            menu.addItem(NSMenuItem.separator())
-        }
 
         let login = NSMenuItem(title: "Start at Login", action: #selector(toggleLogin), keyEquivalent: "")
         login.target = self
