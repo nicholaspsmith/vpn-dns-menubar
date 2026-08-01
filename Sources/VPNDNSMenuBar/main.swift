@@ -209,21 +209,24 @@ final class App: NSObject, NSApplicationDelegate {
         }
         var relay = lastRelay
         if alive && (relay == nil || tick % 12 == 0) {
+            // Ask through the proxy: that exercises the exact path qBittorrent uses.
             let json = Shell.run("/usr/bin/curl",
-                ["--interface", QBT_IFACE, "--max-time", "3", "-s", "https://am.i.mullvad.net/json"],
-                timeout: 6) ?? ""
+                ["--socks5-hostname", "127.0.0.1:1080", "--max-time", "4", "-s",
+                 "https://am.i.mullvad.net/json"], timeout: 8) ?? ""
             if let fresh = parseExitHostname(json) { relay = fresh }
         }
+        let proxyUp = parseProxyListening(
+            Shell.run("/usr/sbin/lsof", ["-nP", "-iTCP:1080", "-sTCP:LISTEN"], timeout: 5) ?? "")
         let running = !(Shell.run("/usr/bin/pgrep", ["-x", "qbittorrent"], timeout: 3) ?? "")
             .trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-        var listening = false
+        var usingProxy = false
         if running {
             let lsof = Shell.run("/usr/sbin/lsof",
-                ["-nP", "-a", "-c", "qbittorre", "-iTCP", "-sTCP:LISTEN"], timeout: 5) ?? ""
-            listening = parseQbtListening(lsof, address: dev.address)
+                ["-nP", "-a", "-c", "qbittorre", "-iTCP", "-sTCP:ESTABLISHED"], timeout: 5) ?? ""
+            usingProxy = parseQbtUsingProxy(lsof)
         }
-        return (deriveQbtState(installed: true, ifaceUp: ifaceUp, alive: alive,
-                               qbtRunning: running, qbtListening: listening, relay: relay), relay)
+        return (deriveQbtState(installed: true, ifaceUp: ifaceUp, alive: alive, proxyUp: proxyUp,
+                               qbtRunning: running, qbtUsingProxy: usingProxy, relay: relay), relay)
     }
 
     private func addGroupHeader(_ menu: NSMenu, _ title: String) {
