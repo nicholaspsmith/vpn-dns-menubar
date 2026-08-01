@@ -92,6 +92,7 @@ final class App: NSObject, NSApplicationDelegate {
     private var qbtState: QbtTunnelState = .notInstalled
     private var qbtLastRelay: String?     // main-thread; last confirmed exit hostname
     private var pollTick = 0              // main-thread; drives the every-12th curl
+    private var splitTunnel = SplitTunnelStatus(enabled: false, apps: [])
     private let store: LatencyStore
     private var probe: LatencyProbe!
     private let mullvadStateLock = NSLock()
@@ -166,6 +167,7 @@ final class App: NSObject, NSApplicationDelegate {
             let be = tsRunning ? parseTailscaleBackend(Shell.run(TS, ["status", "--json"]) ?? "") : "Not running"
             let dns = tsRunning ? parseCorpDNS(Shell.run(TS, ["debug", "prefs"]) ?? "") : false
             let qbt = self.pollQbtBlocking(tick: tick, lastRelay: lastRelay)
+            let st = parseSplitTunnel(Shell.run(MULLVAD, ["split-tunnel", "get"]) ?? "")
             DispatchQueue.main.async {
                 self.pollInFlight = false
                 let previous = self.mullvad.state
@@ -174,6 +176,7 @@ final class App: NSObject, NSApplicationDelegate {
                 self.corpDNS = dns
                 self.qbtState = qbt.0
                 self.qbtLastRelay = qbt.1
+                self.splitTunnel = st
                 self.mullvadStateLock.lock()
                 self.mullvadIsOff = (mv.state == .off)
                 self.mullvadStateLock.unlock()
@@ -241,6 +244,9 @@ final class App: NSObject, NSApplicationDelegate {
             restart.target = self
             menu.addItem(restart)
         }
+
+        menu.addItem(NSMenuItem.separator())
+        menu.addItem(buildSplitTunnelItem())
 
         menu.addItem(NSMenuItem.separator())
 
@@ -311,6 +317,66 @@ final class App: NSObject, NSApplicationDelegate {
             DispatchQueue.main.async { self?.poll() }
         }
     }
+    private func buildSplitTunnelItem() -> NSMenuItem {
+        let root = NSMenuItem(title: splitTunnelMenuTitle(splitTunnel.enabled), action: nil, keyEquivalent: "")
+        let sub = NSMenu()
+        let toggle = NSMenuItem(title: splitTunnelToggleLabel(splitTunnel.enabled), action: #selector(toggleSplitTunnel), keyEquivalent: "")
+        toggle.target = self
+        sub.addItem(toggle)
+        if !splitTunnel.apps.isEmpty {
+            sub.addItem(NSMenuItem.separator())
+            let header = NSMenuItem(title: "Excluded from VPN — click to remove", action: nil, keyEquivalent: "")
+            header.isEnabled = false
+            sub.addItem(header)
+            for path in splitTunnel.apps {
+                let item = NSMenuItem(title: splitTunnelAppDisplayName(path), action: #selector(removeSplitTunnelApp(_:)), keyEquivalent: "")
+                item.target = self
+                item.state = .on
+                item.representedObject = path
+                item.toolTip = path
+                sub.addItem(item)
+            }
+        }
+        sub.addItem(NSMenuItem.separator())
+        let add = NSMenuItem(title: "Add App…", action: #selector(addSplitTunnelApp), keyEquivalent: "")
+        add.target = self
+        sub.addItem(add)
+        root.submenu = sub
+        return root
+    }
+
+    @objc private func toggleSplitTunnel() {
+        let target = splitTunnel.enabled ? "off" : "on"
+        DispatchQueue.global().async { [weak self] in
+            _ = Shell.run(MULLVAD, ["split-tunnel", "set", target])
+            DispatchQueue.main.async { self?.poll() }
+        }
+    }
+
+    @objc private func removeSplitTunnelApp(_ sender: NSMenuItem) {
+        guard let path = sender.representedObject as? String else { return }
+        DispatchQueue.global().async { [weak self] in
+            _ = Shell.run(MULLVAD, ["split-tunnel", "app", "remove", path])
+            DispatchQueue.main.async { self?.poll() }
+        }
+    }
+
+    @objc private func addSplitTunnelApp() {
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = true
+        panel.canChooseDirectories = false
+        panel.allowsMultipleSelection = false
+        panel.directoryURL = URL(fileURLWithPath: "/Applications")
+        NSApp.activate(ignoringOtherApps: true)
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        // .app bundles resolve to their executable; bare binaries pass through.
+        let path = Bundle(url: url)?.executableURL?.path ?? url.path
+        DispatchQueue.global().async { [weak self] in
+            _ = Shell.run(MULLVAD, ["split-tunnel", "app", "add", path])
+            DispatchQueue.main.async { self?.poll() }
+        }
+    }
+
     // sudo -n: fail instead of prompting (a GUI app can't answer); the
     // /etc/sudoers.d/qbt-tunnel rule must match this command exactly.
     @objc private func restartQbtTunnel() {
