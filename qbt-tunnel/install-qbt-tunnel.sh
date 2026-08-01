@@ -40,7 +40,24 @@ sleep 1   # bootout completes asynchronously; immediate re-bootstrap can fail (I
 /usr/sbin/visudo -cf "$SRC_DIR/qbt-tunnel.sudoers"
 /usr/bin/install -o root -g wheel -m 440 "$SRC_DIR/qbt-tunnel.sudoers" /etc/sudoers.d/qbt-tunnel
 
-# --- qBittorrent double-keyed binding --------------------------------------
+# --- SOCKS5 proxy agent (runs as the user, no root) ------------------------
+# qBittorrent cannot transmit when libtorrent binds utun100 itself (verified:
+# zero bytes leave the interface), so it talks SOCKS5 to this proxy and the
+# proxy owns the tunnel binding. See README.
+PROXY_LABEL="com.nicholassmith.qbt-socks5"
+USER_HOME="/Users/$SUDO_USER"
+PROXY_LOG="$USER_HOME/Library/Logs/qbt-socks5.log"
+/usr/bin/sudo -u "$SUDO_USER" /bin/mkdir -p "$USER_HOME/Library/LaunchAgents" "$USER_HOME/Library/Logs"
+/usr/bin/sed -e "s|__SCRIPT__|$SRC_DIR/qbt-socks5-proxy.py|" -e "s|__LOG__|$PROXY_LOG|g" \
+    "$SRC_DIR/$PROXY_LABEL.plist" > "$USER_HOME/Library/LaunchAgents/$PROXY_LABEL.plist"
+/usr/sbin/chown "$SUDO_USER" "$USER_HOME/Library/LaunchAgents/$PROXY_LABEL.plist"
+UID_N="$(/usr/bin/id -u "$SUDO_USER")"
+/usr/bin/sudo -u "$SUDO_USER" /bin/launchctl bootout "gui/$UID_N/$PROXY_LABEL" 2>/dev/null || true
+sleep 1
+/usr/bin/sudo -u "$SUDO_USER" /bin/launchctl bootstrap "gui/$UID_N" \
+    "$USER_HOME/Library/LaunchAgents/$PROXY_LABEL.plist" || echo "! proxy agent bootstrap failed"
+
+# --- qBittorrent: SOCKS5 proxy, no self-binding ----------------------------
 QBT_INI="/Users/$SUDO_USER/.config/qBittorrent/qBittorrent.ini"
 ADDR="$("$JQ" -r .ipv4_address "$DIR/device.json")"
 if [ ! -f "$QBT_INI" ]; then
@@ -48,19 +65,27 @@ if [ ! -f "$QBT_INI" ]; then
 elif /usr/bin/pgrep -x qbittorrent >/dev/null; then
     echo "! qBittorrent is running (it rewrites its config on quit) — quit it and re-run this installer"
 else
-    /usr/bin/awk -v addr="$ADDR" '
+    # Strip any self-binding (breaks libtorrent here) and point at the proxy.
+    /usr/bin/awk '
         /^Session\\Interface=/ { next }
         /^Session\\InterfaceName=/ { next }
         /^Session\\InterfaceAddress=/ { next }
+        /^Connection\\ProxyType=/ { next }
+        /^Connection\\Proxy\\/ { next }
         { print }
-        /^\[BitTorrent\]$/ {
-            print "Session\\Interface=utun100"
-            print "Session\\InterfaceName=utun100"
-            print "Session\\InterfaceAddress=" addr
+        /^\[Preferences\]$/ {
+            print "Connection\\ProxyType=SOCKS5"
+            print "Connection\\Proxy\\IP=127.0.0.1"
+            print "Connection\\Proxy\\Port=1080"
+            print "Connection\\Proxy\\AuthEnabled=false"
+            print "Connection\\Proxy\\HostnameLookupEnabled=true"
+            print "Connection\\Proxy\\Profiles\\BitTorrent=true"
+            print "Connection\\Proxy\\Profiles\\Misc=true"
+            print "Connection\\Proxy\\Profiles\\RSS=true"
         }' "$QBT_INI" > "$QBT_INI.tmp"
     /usr/sbin/chown "$SUDO_USER" "$QBT_INI.tmp"
     /bin/mv "$QBT_INI.tmp" "$QBT_INI"
-    echo "qBittorrent bound to utun100 / $ADDR"
+    echo "qBittorrent routed via SOCKS5 127.0.0.1:1080 (proxy binds $ADDR)"
 fi
 
 # --- verify ----------------------------------------------------------------
