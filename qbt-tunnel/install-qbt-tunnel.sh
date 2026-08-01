@@ -32,7 +32,9 @@ done
 /usr/bin/install -o root -g wheel -m 755 "$SRC_DIR/pin-qbt-relay.sh" "$LIBEXEC/pin-qbt-relay.sh"
 /usr/bin/install -o root -g wheel -m 644 "$SRC_DIR/$LABEL.plist" "/Library/LaunchDaemons/$LABEL.plist"
 /bin/launchctl bootout "system/$LABEL" 2>/dev/null || true
-/bin/launchctl bootstrap system "/Library/LaunchDaemons/$LABEL.plist"
+sleep 1   # bootout completes asynchronously; immediate re-bootstrap can fail (I/O error 5)
+/bin/launchctl bootstrap system "/Library/LaunchDaemons/$LABEL.plist" \
+    || { sleep 2; /bin/launchctl bootstrap system "/Library/LaunchDaemons/$LABEL.plist"; }
 
 # --- sudoers (validate before install; a bad file locks sudo out) ----------
 /usr/sbin/visudo -cf "$SRC_DIR/qbt-tunnel.sudoers"
