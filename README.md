@@ -228,9 +228,35 @@ sudo qbt-tunnel/install-qbt-tunnel.sh
 The installer registers the device via Mullvad's API (account number read from
 the local `mullvad` CLI; the private key never leaves the machine), pins a
 relay, loads the `com.nicholassmith.qbt-wireguard` LaunchDaemon, installs a
-single-command sudoers rule for the menu's restart action, and double-key binds
-qBittorrent (`Session\Interface=utun100` **and** `Session\InterfaceAddress=<10.x>`,
-so a foreign interface that happens to claim `utun100` still fails closed).
+single-command sudoers rule for the menu's restart action, starts the SOCKS5
+proxy agent (below), and points qBittorrent at it.
+
+### Why a SOCKS5 proxy instead of qBittorrent's own interface binding
+
+The obvious design — set qBittorrent's "Network interface" to `utun100` — is
+**broken**, and silently: qBittorrent binds and logs "Successfully listening",
+but then transmits **zero bytes** through the interface. Every tracker reports
+`timed out`, DHT stays at 0 nodes, no peer connection is ever attempted, and
+downloads sit at `stalledDL` forever. Verified by interface byte counters: with
+qBittorrent running and a forced reannounce, `utun100` carried 0 bytes out,
+while an ordinary process binding *the same address and port* completed UDP
+tracker announces, TCP connections, and full BitTorrent handshakes. Binding by
+device name, by address, both, disabling anonymous mode, changing relays, and
+disabling split tunneling all made no difference — it is libtorrent-side.
+
+So qBittorrent no longer touches the tunnel directly. `qbt-socks5-proxy.py`
+(user LaunchAgent `com.nicholassmith.qbt-socks5`) listens on `127.0.0.1:1080`
+and makes every outbound connection — TCP CONNECT **and** UDP ASSOCIATE, so
+UDP trackers, DHT and µTP all work — from the tunnel address. qBittorrent is
+configured with that proxy for BitTorrent, RSS, and general traffic, with
+hostname lookups sent through it too.
+
+This is also **stricter** than the original design: qBittorrent now holds no
+sockets on the physical interface at all (verify with
+`lsof -nP -i -a -p $(pgrep -x qbittorrent)` — everything is `127.0.0.1`), and
+proxying DNS closes the tracker-hostname and RSS leaks the interface-binding
+design could not. Still fail-closed: the proxy binds the tunnel address per
+connection, so if the tunnel drops, `bind()` fails and connections are refused.
 
 **Manual registration fallback** (if the API flow breaks): log into mullvad.net →
 WireGuard configuration → generate a config for a new device, then put its
@@ -255,20 +281,27 @@ else — `Address`/`DNS`/`MTU` are wg-quick keys and break `wg setconf`), write
   **Restart qBittorrent Tunnel** kicks the daemon (passwordless via
   `/etc/sudoers.d/qbt-tunnel`).
 
-**Known limitations** (by design; the fix would be a gluetun/Docker setup):
-- Tracker *hostname* DNS lookups use the system resolver — with the Mullvad app
-  off, the ISP can see tracker domains (announces/peers stay in-tunnel).
-- qBittorrent's GUI-level HTTP (RSS fetches, update checks) ignores the
-  interface binding and follows the system route.
+**Known limitations**
 - One static relay (no auto-failover) and a static device key (no rotation).
+- The proxy is single-process Python; fine at observed rates (4.5 MB/s across
+  three torrents, 100+ concurrent connections) but it is not a tuned proxy.
+- Incoming connections are impossible (Mullvad has no port forwarding), so
+  qBittorrent reports `firewalled` — normal, outgoing peers still work.
+
+(The DNS and RSS leaks previously listed here are now closed — see the SOCKS5
+section above.)
 
 ### Uninstall (qbt tunnel only)
 
 ```sh
+launchctl bootout "gui/$(id -u)/com.nicholassmith.qbt-socks5"
+rm -f ~/Library/LaunchAgents/com.nicholassmith.qbt-socks5.plist
 sudo launchctl bootout system/com.nicholassmith.qbt-wireguard
 sudo rm -rf /Library/LaunchDaemons/com.nicholassmith.qbt-wireguard.plist \
     /usr/local/libexec/qbt-tunnel /etc/wireguard-qbt /etc/sudoers.d/qbt-tunnel
 ```
+
+Also clear qBittorrent's proxy (Preferences → Connection → Proxy → None).
 
 Then set qBittorrent's Preferences → Advanced → Network interface back to "Any"
 and delete the device on mullvad.net (frees the slot).
