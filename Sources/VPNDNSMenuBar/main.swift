@@ -93,6 +93,7 @@ final class App: NSObject, NSApplicationDelegate {
     private var qbtLastRelay: String?     // main-thread; last confirmed exit hostname
     private var pollTick = 0              // main-thread; drives the every-12th curl
     private var splitTunnel = SplitTunnelStatus(enabled: false, apps: [])
+    private var qbtExitCandidates: [QbtExitCandidate] = []   // main-thread
     private let store: LatencyStore
     private var probe: LatencyProbe!
     private let mullvadStateLock = NSLock()
@@ -159,6 +160,7 @@ final class App: NSObject, NSApplicationDelegate {
         let tick = pollTick
         pollTick += 1
         let lastRelay = qbtLastRelay
+        let needCandidates = qbtState != .notInstalled && (qbtExitCandidates.isEmpty || tick % 720 == 0)
         pollQueue.async { [weak self] in
             guard let self = self else { return }
             let mv = parseMullvadStatus(Shell.run(MULLVAD, ["status"]) ?? "")
@@ -168,6 +170,10 @@ final class App: NSObject, NSApplicationDelegate {
             let dns = tsRunning ? parseCorpDNS(Shell.run(TS, ["debug", "prefs"]) ?? "") : false
             let qbt = self.pollQbtBlocking(tick: tick, lastRelay: lastRelay)
             let st = parseSplitTunnel(Shell.run(MULLVAD, ["split-tunnel", "get"]) ?? "")
+            // Candidate cities for the exit switcher: hourly, or until first success.
+            let candidates: [QbtExitCandidate]? = needCandidates
+                ? parseQbtExitCandidates(Shell.run("/usr/local/libexec/qbt-tunnel/pin-qbt-relay.sh", ["--list"], timeout: 20) ?? "")
+                : nil
             DispatchQueue.main.async {
                 self.pollInFlight = false
                 let previous = self.mullvad.state
@@ -177,6 +183,9 @@ final class App: NSObject, NSApplicationDelegate {
                 self.qbtState = qbt.0
                 self.qbtLastRelay = qbt.1
                 self.splitTunnel = st
+                if let candidates = candidates, !candidates.isEmpty {
+                    self.qbtExitCandidates = candidates
+                }
                 self.mullvadStateLock.lock()
                 self.mullvadIsOff = (mv.state == .off)
                 self.mullvadStateLock.unlock()
@@ -251,6 +260,7 @@ final class App: NSObject, NSApplicationDelegate {
             let restart = NSMenuItem(title: "Restart qBittorrent Tunnel", action: #selector(restartQbtTunnel), keyEquivalent: "")
             restart.target = self
             menu.addItem(restart)
+            menu.addItem(buildQbtExitItem())
         }
 
         menu.addItem(NSMenuItem.separator())
@@ -353,6 +363,50 @@ final class App: NSObject, NSApplicationDelegate {
         sub.addItem(add)
         root.submenu = sub
         return root
+    }
+
+    private func buildQbtExitItem() -> NSMenuItem {
+        let root = NSMenuItem(title: "qBittorrent Exit", action: nil, keyEquivalent: "")
+        let sub = NSMenu()
+        if qbtExitCandidates.isEmpty {
+            let none = NSMenuItem(title: "Loading candidates…", action: nil, keyEquivalent: "")
+            none.isEnabled = false
+            sub.addItem(none)
+        } else {
+            for c in qbtExitCandidates {
+                let item = NSMenuItem(title: c.display, action: #selector(switchQbtExit(_:)), keyEquivalent: "")
+                item.target = self
+                item.state = qbtExitIsCurrent(relay: qbtLastRelay, cityCode: c.code) ? .on : .off
+                item.representedObject = c.code
+                sub.addItem(item)
+            }
+        }
+        sub.addItem(NSMenuItem.separator())
+        let probe = NSMenuItem(title: "Re-probe & Pin Fastest", action: #selector(reprobeQbtExit), keyEquivalent: "")
+        probe.target = self
+        sub.addItem(probe)
+        root.submenu = sub
+        return root
+    }
+
+    @objc private func switchQbtExit(_ sender: NSMenuItem) {
+        guard let code = sender.representedObject as? String else { return }
+        qbtLastRelay = nil   // stale once re-pinned; re-learned from am.i.mullvad on next poll
+        DispatchQueue.global().async { [weak self] in
+            _ = Shell.run("/usr/bin/sudo",
+                ["-n", "/usr/local/libexec/qbt-tunnel/pin-qbt-relay.sh", "--city", code], timeout: 60)
+            DispatchQueue.main.async { self?.poll() }
+        }
+    }
+
+    @objc private func reprobeQbtExit() {
+        qbtLastRelay = nil
+        DispatchQueue.global().async { [weak self] in
+            // Full latency sweep across ~22 cities; give it plenty of rope.
+            _ = Shell.run("/usr/bin/sudo",
+                ["-n", "/usr/local/libexec/qbt-tunnel/pin-qbt-relay.sh"], timeout: 300)
+            DispatchQueue.main.async { self?.poll() }
+        }
     }
 
     @objc private func toggleSplitTunnel() {

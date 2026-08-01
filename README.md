@@ -243,6 +243,12 @@ else — `Address`/`DNS`/`MTU` are wg-quick keys and break `wg setconf`), write
 **Operations**
 - Pinned relay died → torrents stall (safe); `sudo qbt-tunnel/pin-qbt-relay.sh`
   re-probes and re-pins.
+- Switch exits from the menu: **qBittorrent Exit ▸** lists the candidate cities
+  (checkmark = current, confirmed via am.i.mullvad.net); picking one re-pins
+  instantly, and **Re-probe & Pin Fastest** redoes the full latency sweep. Both
+  run the root-owned copy at `/usr/local/libexec/qbt-tunnel/pin-qbt-relay.sh`
+  passwordless via the sudoers rule. `pin-qbt-relay.sh --list` prints the
+  candidates; `--city <cc-city>` pins a specific city.
 - Logs: `/var/log/qbt-wireguard.log`.
 - Menu row: `●  via <relay>` (confirmed exit) · `● tunnel up · qbt not running` ·
   `◐ tunnel up · qbt not bound` · `○ tunnel down — torrents stalled (safe)`.
