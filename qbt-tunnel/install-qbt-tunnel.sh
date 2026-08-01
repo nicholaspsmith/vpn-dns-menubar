@@ -28,6 +28,8 @@ done
 # --- daemon: root-owned COPY (root must never exec user-writable files) ----
 /bin/mkdir -p "$LIBEXEC"
 /usr/bin/install -o root -g wheel -m 755 "$SRC_DIR/qbt-wg-up.sh" "$LIBEXEC/qbt-wg-up.sh"
+# Root-owned copy for the menu's relay switcher (sudoers targets this path).
+/usr/bin/install -o root -g wheel -m 755 "$SRC_DIR/pin-qbt-relay.sh" "$LIBEXEC/pin-qbt-relay.sh"
 /usr/bin/install -o root -g wheel -m 644 "$SRC_DIR/$LABEL.plist" "/Library/LaunchDaemons/$LABEL.plist"
 /bin/launchctl bootout "system/$LABEL" 2>/dev/null || true
 /bin/launchctl bootstrap system "/Library/LaunchDaemons/$LABEL.plist"
