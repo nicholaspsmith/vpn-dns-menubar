@@ -30,21 +30,23 @@ private func word(_ state: MullvadState) -> String {
     }
 }
 
+/// Row labels sit under "Mullvad"/"Tailscale" group headers in the menu,
+/// so they carry no product-name prefix.
 public func mullvadRowLabel(_ s: MullvadStatus) -> String {
     if s.state == .connected {
-        return "Mullvad: Connected — \(s.relay ?? "?")"
+        return "Connected — \(s.relay ?? "?")"
     }
     if let loc = s.location, !loc.isEmpty {
-        return "Mullvad: \(word(s.state)) — \(loc)"
+        return "\(word(s.state)) — \(loc)"
     }
-    return "Mullvad: \(word(s.state))"
+    return word(s.state)
 }
 
 public func acceptDNSLabel(_ on: Bool) -> String {
     "accept-dns (MagicDNS): \(on ? "ON" : "OFF")"
 }
 
-public func tailscaleRowLabel(_ backend: String) -> String { "Tailscale: \(backend)" }
+public func tailscaleRowLabel(_ backend: String) -> String { "Status: \(backend)" }
 
 public func tailscaleColor(_ backend: String) -> DotColor {
     switch backend {
