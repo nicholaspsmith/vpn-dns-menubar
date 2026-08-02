@@ -61,9 +61,13 @@ LaunchDaemon (system domain, RunAtLoad, KeepAlive) runs the script as root:
    supervises and restarts it (implementation: verify the foreground env var /
    flag for the installed wireguard-go version before relying on it).
 2. `wg setconf utun100 /etc/wireguard-qbt/qbt.conf`
-3. `ifconfig utun100 inet <10.x>/32 10.64.0.1 mtu 1160 up`
-   — 10.64.0.1 is Mullvad's standard in-tunnel gateway (also the liveness ping
-   target in the menu row).
+3. `ifconfig utun100 inet <10.x> <10.x> mtu 1160 up`  **(amended 2026-08-02)**
+   — The peer address is our OWN address. It was originally 10.64.0.1
+   (Mullvad's in-tunnel gateway), which installs a *global* host route for that
+   address; since every Mullvad tunnel uses the same gateway, that route
+   hijacked the system Mullvad app's post-handshake connectivity ping into this
+   tunnel and the app disconnected itself every time. 10.64.0.1 remains the
+   liveness-ping target, reached via the scoped route below.
    — MTU 1160 fits inside the observed MTU-1260 system multihop tunnel with margin.
 4. `route -q add -inet default -interface utun100 -ifscope utun100`
 5. If `utun100` is already taken by a foreign interface: exit non-zero (launchd
@@ -102,18 +106,29 @@ Canada, Mexico, Colombia, Brazil, Argentina, Chile, Peru, Serbia, Albania,
 Ukraine, Romania, Moldova, Spain, Switzerland, Thailand, Philippines, Netherlands.
 From SC, Canada is the expected latency winner.
 
-### 4. qBittorrent binding — double-keyed
+### 4. qBittorrent → SOCKS5 proxy **(superseded the binding design, 2026-08-01)**
 
-In `~/.config/qBittorrent/qBittorrent.ini` (applied with the app quit):
+The original plan bound qBittorrent to the interface directly
+(`Session\Interface` + `Session\InterfaceAddress`). **That does not work.**
+qBittorrent binds, logs "Successfully listening", and then transmits *zero
+bytes*: every tracker reports `timed out`, DHT stays at 0 nodes, no peer
+connection is attempted, downloads sit at `stalledDL` indefinitely. Verified
+with interface byte counters (0 bytes out during a forced reannounce) while an
+ordinary process binding the same address and port completed UDP announces, TCP
+connections and full BitTorrent handshakes. Binding by device name, by address,
+by both, disabling anonymous mode, changing relays and disabling split
+tunneling all made no difference — the fault is libtorrent-side.
 
-```
-Session\Interface=utun100
-Session\InterfaceName=utun100
-Session\InterfaceAddress=<10.x device address>
-```
+Instead, `qbt-tunnel/qbt-socks5-proxy.py` (user LaunchAgent
+`com.nicholassmith.qbt-socks5`) listens on `127.0.0.1:1080` and makes every
+outbound connection from the tunnel address, supporting both TCP CONNECT and
+UDP ASSOCIATE so UDP trackers, DHT and µTP work. qBittorrent is configured with
+that proxy for BitTorrent/RSS/misc plus hostname lookups, and holds no sockets
+on the physical interface at all.
 
-Interface name **and** address must both match; if `utun100` ever belongs to a
-foreign tunnel, the address check still fails closed.
+Still fail-closed (the proxy binds the tunnel address per connection), and
+*stricter* than the original design: proxying DNS closes the tracker-hostname
+and RSS leaks listed under Accepted Limitations below.
 
 ### 5. Menu row — `Sources/VPNDNSCore/QbtTunnelStatus.swift` + row in `main.swift`
 
@@ -124,8 +139,10 @@ Checks per poll (cheap, local):
 - `utun100` exists and holds the expected 10.x address (getifaddrs).
 - Tunnel liveness: one ICMP ping to the in-tunnel gateway bound to utun100
   (`ping -c1 -b utun100`, short timeout).
-- qBittorrent running (`pgrep`) and listening on the tunnel address (`lsof`,
-  user-owned process, no root).
+- SOCKS5 proxy listening on 127.0.0.1:1080, and qBittorrent holding a
+  connection to it (`lsof`, user-owned process, no root). **(amended
+  2026-08-01: was "qBittorrent listening on the tunnel address", which no
+  longer applies now that the proxy owns the binding.)**
 
 Occasional check (every Nth poll and on menu open):
 `curl --interface utun100 --max-time 3 https://am.i.mullvad.net/json` → shows the
@@ -170,15 +187,18 @@ relay exit IP. System Mullvad transitions cause only a seconds-long re-handshake
 
 ## Accepted limitations (documented in README)
 
-1. **DNS metadata:** tracker hostname lookups use the system resolver — with system
-   Mullvad off, the ISP can see tracker *domains* (announces/peer traffic stay
-   in-tunnel).
-2. **qBittorrent GUI HTTP:** RSS fetches and update checks ignore the interface
-   binding and follow the system route — with system Mullvad off they go out bare.
+1. ~~**DNS metadata:** tracker hostname lookups use the system resolver.~~
+   **Closed 2026-08-01** — hostname lookups now go through the SOCKS5 proxy.
+2. ~~**qBittorrent GUI HTTP:** RSS fetches and update checks ignore the
+   binding.~~ **Closed 2026-08-01** — the proxy covers RSS and misc traffic.
 3. Static single relay (no auto-failover); static device key (no rotation).
+4. The proxy is single-process Python. Fine at observed rates (4.5 MB/s across
+   three torrents, 100+ concurrent connections) but not a tuned proxy.
+5. No incoming connections (Mullvad has no port forwarding), so qBittorrent
+   reports `firewalled`. Normal; outgoing peers still work.
 
-Closing 1–2 fully would require the gluetun/Docker architecture (considered,
-deferred).
+The gluetun/Docker architecture (considered, deferred) is no longer needed to
+close 1–2.
 
 ## Testing
 
