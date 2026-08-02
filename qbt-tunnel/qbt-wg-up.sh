@@ -8,7 +8,9 @@ set -euo pipefail
 IFACE="utun100"
 CONF="/etc/wireguard-qbt/qbt.conf"
 DEVJSON="/etc/wireguard-qbt/device.json"
-GATEWAY="10.64.0.1"
+GATEWAY="10.64.0.1"       # Mullvad's in-tunnel gateway; liveness-check target
+                          # only -- deliberately NOT the interface peer address
+                          # (see the ifconfig call below).
 MTU=1160
 WG_GO="/opt/homebrew/bin/wireguard-go"
 WG="/opt/homebrew/bin/wg"
@@ -44,10 +46,21 @@ for _ in $(seq 1 50); do
 done
 
 "$WG" setconf "$IFACE" "$CONF"
-/sbin/ifconfig "$IFACE" inet "$ADDR/32" "$GATEWAY" mtu "$MTU" up
+# Peer address is our OWN address, not $GATEWAY. Pointing the point-to-point
+# peer at 10.64.0.1 installs a GLOBAL host route for it, and 10.64.0.1 is the
+# in-tunnel gateway every Mullvad tunnel uses -- including the system Mullvad
+# app's. That route hijacks the app's post-handshake connectivity ping into
+# this tunnel, so the app decides its own tunnel is dead and disconnects
+# ("talpid_wireguard::connectivity::check: Ping failed"). Tailscale and the
+# Mullvad app both avoid claiming a shared peer address for this reason.
+# Our own traffic still reaches 10.64.0.1 via the scoped default route below,
+# which only applies to sockets explicitly bound to this interface.
+/sbin/ifconfig "$IFACE" inet "$ADDR" "$ADDR" mtu "$MTU" up
 # Scoped-only default route: invisible to normal lookups; used solely by
 # sockets explicitly bound to utun100 (qBittorrent). System table untouched.
 /sbin/route -q -n add -inet -ifscope "$IFACE" default -interface "$IFACE" || true
 
-echo "$(date '+%F %T') $IFACE up addr=$ADDR peer=$("$WG" show "$IFACE" endpoints | /usr/bin/head -1)"
+/sbin/ping -q -c 1 -t 4 -b "$IFACE" "$GATEWAY" >/dev/null 2>&1 \
+    && LIVE="gateway reachable" || LIVE="gateway UNREACHABLE"
+echo "$(date '+%F %T') $IFACE up addr=$ADDR $LIVE peer=$("$WG" show "$IFACE" endpoints | /usr/bin/head -1)"
 wait "$WGPID"
