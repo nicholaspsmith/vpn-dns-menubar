@@ -282,6 +282,20 @@ else — `Address`/`DNS`/`MTU` are wg-quick keys and break `wg setconf`), write
   `/etc/sudoers.d/qbt-tunnel`).
 
 **Known limitations**
+- **The Mullvad app and this tunnel are mutually exclusive.** While the app is
+  connected, this tunnel still completes its WireGuard handshake (its gateway
+  `10.64.0.1` pings fine) but the relay forwards *nothing* to the internet —
+  `ping 1.1.1.1` through it gets 100% loss, TCP never connects, torrents stall.
+  Mullvad-inside-Mullvad does not work, and no split-tunnel arrangement fixes
+  it: excluding `wireguard-go` (so the tunnel goes direct instead of nested)
+  doesn't help either. The original design assumed nesting worked "like
+  multihop"; it does not. So: **run the Mullvad app disconnected while
+  torrenting.** Failure is safe (stalled, never leaking), just not obvious.
+- Mullvad **split tunneling breaks interface-bound sockets** generally: it
+  forces excluded apps onto the physical interface and everything else through
+  its tunnel, either way overriding a `utun100` binding — so the SOCKS5 proxy
+  cannot reach the tunnel while it is on. It also requires Full Disk Access, or
+  the daemon refuses to connect at all.
 - One static relay (no auto-failover) and a static device key (no rotation).
 - The proxy is single-process Python; fine at observed rates (4.5 MB/s across
   three torrents, 100+ concurrent connections) but it is not a tuned proxy.
