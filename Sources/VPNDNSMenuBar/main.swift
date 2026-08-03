@@ -61,39 +61,68 @@ private func infoItem(_ title: String) -> NSMenuItem {
     return item
 }
 
-/// Pings candidate relays and records direct latency — but ONLY while Mullvad is
-/// off (pinging through the tunnel is unreliable). Runs off the main thread.
+/// Pings candidate relays and records direct latency, at most every ~12 h
+/// (the staleness ceiling). Two probe modes, chosen by `probeDecision`:
+/// Mullvad off → plain pings are direct; Mullvad connected → only if the
+/// user already has split tunneling on, by temporarily excluding
+/// `/sbin/ping` from the tunnel (never flipping split-tunnel state itself).
+/// Runs off the main thread.
 final class LatencyProbe {
     private let store: LatencyStore
     private let isOff: () -> Bool
+    private let splitTunnelOn: () -> Bool
     private let onUpdate: () -> Void
     private let queue = DispatchQueue(label: "vpndns.latency", attributes: .concurrent)
     private let gate = DispatchSemaphore(value: 8)   // max concurrent pings
     private var timer: Timer?
     private var running = false
+    static let maxAge: TimeInterval = 12 * 3600
 
-    init(store: LatencyStore, isOff: @escaping () -> Bool, onUpdate: @escaping () -> Void) {
+    init(store: LatencyStore, isOff: @escaping () -> Bool,
+         splitTunnelOn: @escaping () -> Bool, onUpdate: @escaping () -> Void) {
         self.store = store
         self.isOff = isOff
+        self.splitTunnelOn = splitTunnelOn
         self.onUpdate = onUpdate
     }
 
     func start(interval: TimeInterval) {
         timer = Timer.scheduledTimer(withTimeInterval: interval, repeats: true) { [weak self] _ in
-            self?.probeIfOff()
+            self?.probeIfNeeded()
         }
-        probeIfOff()
+        probeIfNeeded()
     }
 
-    /// Trigger a probe now if Mullvad is off and one isn't already running.
-    func probeIfOff() {
-        guard isOff(), !running else { return }
-        running = true
-        queue.async { [weak self] in self?.runProbe() }
+    /// Main thread. Probe iff the newest direct measurement is missing or
+    /// older than 12 h, and the current state permits a trustworthy probe.
+    func probeIfNeeded() {
+        guard !running else { return }
+        let stale = isLatencyStale(last: store.lastDirectMeasurement, now: Date(), maxAge: Self.maxAge)
+        switch probeDecision(stale: stale, mullvadOff: isOff(), splitTunnelOn: splitTunnelOn()) {
+        case .skip:
+            return
+        case .probeDirect:
+            running = true
+            queue.async { [weak self] in self?.runProbe(viaSplitTunnel: false) }
+        case .probeViaSplitTunnel:
+            running = true
+            queue.async { [weak self] in self?.runProbe(viaSplitTunnel: true) }
+        }
     }
 
-    private func runProbe() {
+    private func runProbe(viaSplitTunnel: Bool) {
         defer { DispatchQueue.main.async { [weak self] in self?.running = false } }
+
+        if viaSplitTunnel {
+            // add + verify; on any doubt, clean up and bail (retry next tick).
+            _ = Shell.run(MULLVAD, ["split-tunnel", "app", "add", probePingPath])
+            let st = parseSplitTunnel(Shell.run(MULLVAD, ["split-tunnel", "get"]) ?? "")
+            guard st.enabled, st.apps.contains(probePingPath) else {
+                _ = Shell.run(MULLVAD, ["split-tunnel", "app", "remove", probePingPath])
+                return
+            }
+        }
+
         let relays = store.pool.us + store.pool.nonus
         let group = DispatchGroup()
         let lock = NSLock()
@@ -105,23 +134,31 @@ final class LatencyProbe {
             group.enter()
             queue.async { [weak self] in
                 defer { self?.gate.signal(); group.leave() }
-                guard let self = self, self.isOff() else { return }
+                guard let self = self else { return }
+                if !viaSplitTunnel && !self.isOff() { return }   // tunnel came up mid-probe
                 let out = Shell.run("/sbin/ping", ["-c", "5", "-i", "0.2", "-t", "5", relay.ip]) ?? ""
                 guard let ms = parsePingMinRTT(out) else { return }   // failed ping: keep last-good/seed, don't clobber
-                let direct = self.isOff()
                 lock.lock()
-                results.append(CityLatency(cityCode: relay.cityCode, ms: ms, measuredAt: now, direct: direct))
+                results.append(CityLatency(cityCode: relay.cityCode, ms: ms, measuredAt: now, direct: true))
                 lock.unlock()
             }
         }
         group.wait()
 
-        // Only commit if still off and at least one direct result landed.
-        guard isOff() else { return }
-        let direct = results.filter { $0.direct }
-        guard !direct.isEmpty else { return }
+        // Commit-time re-verification (same rigor as the old isOff() re-check):
+        // a batch whose conditions degraded mid-probe is discarded wholesale.
+        // Then ALWAYS remove our transient exclusion.
+        let trustworthy: Bool
+        if viaSplitTunnel {
+            let st = parseSplitTunnel(Shell.run(MULLVAD, ["split-tunnel", "get"]) ?? "")
+            trustworthy = st.enabled && st.apps.contains(probePingPath)
+            _ = Shell.run(MULLVAD, ["split-tunnel", "app", "remove", probePingPath])
+        } else {
+            trustworthy = isOff()
+        }
+        guard trustworthy, !results.isEmpty else { return }
         DispatchQueue.main.async { [weak self] in
-            self?.store.recordAll(direct)
+            self?.store.recordAll(results)
             self?.onUpdate()
         }
     }
@@ -143,6 +180,7 @@ final class App: NSObject, NSApplicationDelegate {
     private var mullvadIsOff = false   // guarded by mullvadStateLock; read by probe off-main
     private let pollQueue = DispatchQueue(label: "vpndns.poll")
     private var pollInFlight = false   // main-thread only; drops overlapping polls
+    private var firstPollCommitted = false   // main-thread; gates the launch-time probe check
 
     override init() {
         let pool: CandidatePool
@@ -174,6 +212,8 @@ final class App: NSObject, NSApplicationDelegate {
                 defer { self.mullvadStateLock.unlock() }
                 return self.mullvadIsOff
             },
+            // Main-thread read: probeIfNeeded only ever runs on the main thread.
+            splitTunnelOn: { [weak self] in self?.splitTunnel.enabled ?? false },
             // no-op: StatusItemController rebuilds the menu on each open, so fresh
             // latencies appear next time the menu is opened.
             onUpdate: { }
@@ -240,7 +280,14 @@ final class App: NSObject, NSApplicationDelegate {
                 self.mullvadStateLock.lock()
                 self.mullvadIsOff = (mv.state == .off)
                 self.mullvadStateLock.unlock()
-                if previous != .off && mv.state == .off { self.probe?.probeIfOff() }
+                if previous != .off && mv.state == .off { self.probe?.probeIfNeeded() }
+                // The evaluation in start() ran before any poll had committed real
+                // state (mullvadIsOff/splitTunnel still init defaults → skip), so
+                // re-evaluate once the first real state lands.
+                if !self.firstPollCommitted {
+                    self.firstPollCommitted = true
+                    self.probe?.probeIfNeeded()
+                }
                 self.controller.setIcon(MeterIcon.dot(color: nsColor(dotColor(mullvad: mv.state, tailscaleRunning: be == "Running"))))
             }
         }
