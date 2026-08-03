@@ -168,6 +168,14 @@ final class App: NSObject, NSApplicationDelegate {
             onUpdate: { }
         )
         probe.start(interval: 15 * 60)
+        // Crash backstop: a probe killed mid-run can leave /sbin/ping in the
+        // split-tunnel exclusions; never let that linger across launches.
+        DispatchQueue.global().async {
+            let st = parseSplitTunnel(Shell.run(MULLVAD, ["split-tunnel", "get"]) ?? "")
+            if st.apps.contains(probePingPath) {
+                _ = Shell.run(MULLVAD, ["split-tunnel", "app", "remove", probePingPath])
+            }
+        }
     }
 
     // True iff the Tailscale GUI app is already running. We must NOT invoke the
@@ -371,10 +379,11 @@ final class App: NSObject, NSApplicationDelegate {
         let toggle = NSMenuItem(title: splitTunnelToggleLabel(splitTunnel.enabled), action: #selector(toggleSplitTunnel), keyEquivalent: "")
         toggle.target = self
         sub.addItem(toggle)
-        if !splitTunnel.apps.isEmpty {
+        let apps = splitTunnelDisplayApps(splitTunnel.apps)
+        if !apps.isEmpty {
             sub.addItem(NSMenuItem.separator())
             sub.addItem(headerItem("Excluded from VPN — click to remove"))
-            for path in splitTunnel.apps {
+            for path in apps {
                 let item = NSMenuItem(title: splitTunnelAppDisplayName(path), action: #selector(removeSplitTunnelApp(_:)), keyEquivalent: "")
                 item.target = self
                 item.state = .on
