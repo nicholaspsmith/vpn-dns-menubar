@@ -37,6 +37,17 @@ private func headerItem(_ title: String) -> NSMenuItem {
     return item
 }
 
+/// Small filled circle for menu-row status dots, centered in a 16 pt canvas
+/// (the standard menu-item image slot).
+private func dotImage(_ color: NSColor, diameter: CGFloat = 10) -> NSImage {
+    NSImage(size: NSSize(width: 16, height: 16), flipped: false) { rect in
+        let inset = (rect.width - diameter) / 2
+        color.setFill()
+        NSBezierPath(ovalIn: NSRect(x: inset, y: inset, width: diameter, height: diameter)).fill()
+        return true
+    }
+}
+
 /// Non-clickable info row at full contrast: reads like content, never
 /// highlights, takes no click. (An explicit attributedTitle overrides
 /// AppKit's faint disabled-gray rendering.)
@@ -273,9 +284,10 @@ final class App: NSObject, NSApplicationDelegate {
         menu.addItem(headerItem(title))
     }
 
-    // Two headed groups: everything Mullvad (status, split tunnel, relay
-    // pickers, the qbt tunnel — a Mullvad device), then everything Tailscale
-    // (status, toggle, accept-dns — a Tailscale pref), then app items.
+    // Three headed groups: everything Mullvad (status, split tunnel, relay
+    // pickers), the qbt tunnel (status dot + actions — its own section, though
+    // the device is a Mullvad one), then everything Tailscale (status, toggle,
+    // accept-dns — a Tailscale pref), then app items.
     private func build(_ menu: NSMenu) {
         addGroupHeader(menu, "Mullvad")
 
@@ -290,7 +302,12 @@ final class App: NSObject, NSApplicationDelegate {
         if !model.nonus.rows.isEmpty { menu.addItem(fastCitiesSubmenuItem(model.nonus, footer: model.footer)) }
 
         if qbtState != .notInstalled {
-            menu.addItem(infoItem(qbtRowLabel(qbtState)))
+            menu.addItem(NSMenuItem.separator())
+            addGroupHeader(menu, "qBittorrent")
+            let qbt = NSMenuItem(title: qbtRowLabel(qbtState), action: #selector(openQbt), keyEquivalent: "")
+            qbt.target = self
+            qbt.image = dotImage(nsColor(qbtDotColor(qbtState)))
+            menu.addItem(qbt)
             let restart = NSMenuItem(title: "Restart qBittorrent Tunnel", action: #selector(restartQbtTunnel), keyEquivalent: "")
             restart.target = self
             menu.addItem(restart)
@@ -362,6 +379,9 @@ final class App: NSObject, NSApplicationDelegate {
     }
     @objc private func openTailscale() {
         _ = Shell.run("/usr/bin/open", ["-a", "Tailscale"])
+    }
+    @objc private func openQbt() {
+        _ = Shell.run("/usr/bin/open", ["-a", "qbittorrent"])
     }
     @objc private func toggleTailscale() {
         let action = tailscaleToggle(backend)

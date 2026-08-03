@@ -81,15 +81,27 @@ public func deriveQbtState(installed: Bool, ifaceUp: Bool, alive: Bool, proxyUp:
     return .active(relay: relay)
 }
 
+// No text glyphs — the menu row carries a real colored status dot (qbtDotColor).
 public func qbtRowLabel(_ s: QbtTunnelState) -> String {
     switch s {
     case .notInstalled: return "qBittorrent: not installed"
-    case .tunnelDown: return "qBittorrent: ○ tunnel down — torrents stalled (safe)"
-    case .proxyDown: return "qBittorrent: ○ proxy down — torrents stalled (safe)"
-    case .qbtNotRunning: return "qBittorrent: ● tunnel up · qbt not running"
-    case .qbtNotBound: return "qBittorrent: ◐ qbt not using proxy"
+    case .tunnelDown: return "qBittorrent: tunnel down — torrents stalled (safe)"
+    case .proxyDown: return "qBittorrent: proxy down — torrents stalled (safe)"
+    case .qbtNotRunning: return "qBittorrent: tunnel up · qbt not running"
+    case .qbtNotBound: return "qBittorrent: qbt not using proxy"
     case .active(let relay):
-        if let relay = relay { return "qBittorrent: ● via \(relay)" }
-        return "qBittorrent: ● tunneled"
+        if let relay = relay { return "qBittorrent: via \(relay)" }
+        return "qBittorrent: tunneled"
+    }
+}
+
+/// Status-dot color for the qBittorrent menu row: grey while the tunnel path
+/// is down (torrents safely stalled), orange when the path is up but qbt is
+/// not running or not routed through it, green when fully active.
+public func qbtDotColor(_ s: QbtTunnelState) -> DotColor {
+    switch s {
+    case .notInstalled, .tunnelDown, .proxyDown: return .grey
+    case .qbtNotRunning, .qbtNotBound: return .orange
+    case .active: return .green
     }
 }
