@@ -340,6 +340,7 @@ final class App: NSObject, NSApplicationDelegate {
 
         let mv = NSMenuItem(title: mullvadRowLabel(mullvad), action: #selector(openMullvad), keyEquivalent: "")
         mv.target = self
+        mv.image = dotImage(nsColor(dotColor(for: mullvad.state)))
         menu.addItem(mv)
 
         menu.addItem(buildSplitTunnelItem())
