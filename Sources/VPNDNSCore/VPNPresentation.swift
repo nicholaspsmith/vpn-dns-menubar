@@ -61,6 +61,16 @@ public func tailscaleColor(_ backend: String) -> DotColor {
     }
 }
 
+public enum MullvadToggle: Equatable { case connect, disconnect }
+
+/// Toggle target for Mullvad: connect when off, disconnect from any live or
+/// in-flight state. `mullvad connect` uses the daemon's own persisted relay
+/// selection (set by the fast-city picks or the native app), so the last
+/// chosen endpoint is honored without the menu app tracking a copy.
+public func mullvadToggle(_ state: MullvadState) -> MullvadToggle {
+    state == .off ? .connect : .disconnect
+}
+
 public enum TailscaleToggle: Equatable { case up, down }
 
 /// Toggle target for Tailscale: bring it down if it's Running, else bring it up.
