@@ -46,6 +46,11 @@ public func acceptDNSLabel(_ on: Bool) -> String {
     "accept-dns (MagicDNS): \(on ? "ON" : "OFF")"
 }
 
+/// Status-dot color for the accept-dns menu row.
+public func acceptDNSDotColor(_ on: Bool) -> DotColor {
+    on ? .green : .grey
+}
+
 public func tailscaleRowLabel(_ backend: String) -> String { "Status: \(backend)" }
 
 public func tailscaleColor(_ backend: String) -> DotColor {
