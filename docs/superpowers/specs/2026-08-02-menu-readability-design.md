@@ -204,6 +204,32 @@ Quit
   firewall blocks non-tunnel traffic while connected, so bound pings would be
   dropped or, worse, silently unreliable. Rejected.
 
+## Execution Amendments (2026-08-03)
+
+What was actually built diverges from the design above in these ways, all
+user-directed during execution:
+
+- **Native `sectionHeader(title:)` rejected in practice.** Its fixed
+  small/muted rendering reproduced the original hard-to-read problem. Headers
+  are instead bold at normal menu size in a max-contrast dynamic color (pure
+  black/white — `labelColor`'s ~85% alpha still read washed-out). The
+  macOS 13/14 availability split is gone; one code path everywhere.
+- **qBittorrent got its own menu section** (was inside the Mullvad group),
+  its status row is clickable (opens qBittorrent) and carries a colored dot:
+  grey = tunnel path down, orange = path up but qbt not running/routed,
+  green = fully active (`qbtDotColor` in core). Label glyphs (○ ● ◐) dropped.
+- **accept-dns row**: moved to the top of the Tailscale section, carries a
+  green/grey dot (`acceptDNSDotColor`), and is clickable — toggles
+  `tailscale set --accept-dns`. A manual toggle is a temporary override; the
+  event-driven DNS watcher re-asserts its mapping on the next Mullvad
+  connect/disconnect.
+- **Mullvad status row** carries a dot too, reusing the existing
+  `dotColor(for:)` menu-bar mapping (green/orange/red/grey).
+- **Launch-time probe evaluation** waits for the first poll to commit real
+  Mullvad/split-tunnel state (a `firstPollCommitted` trigger in `poll()`):
+  the evaluation in `start()` ran against init defaults and always skipped,
+  which would have delayed a launch probe by up to 15 minutes.
+
 ## Spike Result (2026-08-03) — PASS
 
 Target: us-was relay 185.213.193.3 (seed 24 ms). Direct reference (tunnel
