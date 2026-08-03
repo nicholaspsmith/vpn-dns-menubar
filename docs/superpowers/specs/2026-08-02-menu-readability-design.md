@@ -203,3 +203,15 @@ Quit
 - **Interface-bound ping (`ping -b en0`) instead of split tunnel**: Mullvad's
   firewall blocks non-tunnel traffic while connected, so bound pings would be
   dropped or, worse, silently unreliable. Rejected.
+
+## Spike Result (2026-08-03) — PASS
+
+Target: us-was relay 185.213.193.3 (seed 24 ms). Direct reference (tunnel
+down): min 37.5 ms (jittery). Connected via ca-mtr (Montreal), through-tunnel
+baseline: min 66.3 ms (+29 ms detour via exit). With split tunneling on and
+`mullvad split-tunnel app add /sbin/ping`: min 25.5 ms, stddev 0.3 ms — right
+at the seed value, nothing like the tunnel path. `app add /sbin/ping` is
+accepted by the CLI, the exclusion takes effect immediately for new ping
+processes, and `split-tunnel get` reports it for verification. The
+connected-probe design is sound. State restored after (disconnected, split
+tunneling off, ping removed).
