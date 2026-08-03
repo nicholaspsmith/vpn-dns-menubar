@@ -169,6 +169,10 @@ that's unreachable through Mullvad's tunnel. The fix is a launchd watcher that
 disables Tailscale `accept-dns` while Mullvad is up and restores it the moment
 Mullvad disconnects — event-driven via `mullvad status listen`, no polling.
 
+The same watcher also enforces the Mullvad/qbt-tunnel mutual exclusivity (see
+Known limitations under the qBittorrent tunnel): qbt WireGuard job booted out
+on Mullvad connect, bootstrapped back on disconnect.
+
 While Mullvad is connected, MagicDNS is off and the tailnet is unreachable (Mullvad
 split-tunnel can't exclude Tailscale's system network extension — tested, doesn't
 work). So reaching a tailnet host means `mullvad disconnect` → do the thing →
@@ -315,15 +319,24 @@ else — `Address`/`DNS`/`MTU` are wg-quick keys and break `wg setconf`), write
   `/etc/sudoers.d/qbt-tunnel`).
 
 **Known limitations**
-- **The Mullvad app and this tunnel are mutually exclusive.** While the app is
-  connected, this tunnel still completes its WireGuard handshake (its gateway
-  `10.64.0.1` pings fine) but the relay forwards *nothing* to the internet —
-  `ping 1.1.1.1` through it gets 100% loss, TCP never connects, torrents stall.
-  Mullvad-inside-Mullvad does not work, and no split-tunnel arrangement fixes
-  it: excluding `wireguard-go` (so the tunnel goes direct instead of nested)
-  doesn't help either. The original design assumed nesting worked "like
-  multihop"; it does not. So: **run the Mullvad app disconnected while
-  torrenting.** Failure is safe (stalled, never leaking), just not obvious.
+- **The Mullvad app and this tunnel are mutually exclusive — and the DNS
+  watcher enforces it.** While the app is connected, this tunnel still
+  completes its WireGuard handshake (its gateway `10.64.0.1` pings fine) but
+  the relay forwards *nothing* to the internet — `ping 1.1.1.1` through it
+  gets 100% loss, TCP never connects, torrents stall. Mullvad-inside-Mullvad
+  does not work, and no split-tunnel arrangement fixes it: excluding
+  `wireguard-go` (so the tunnel goes direct instead of nested) doesn't help
+  either. The original design assumed nesting worked "like multihop"; it does
+  not. Worse, the coexistence also destabilizes **Mullvad itself**: with
+  `utun100` present (even as a zombie interface after the WireGuard job dies),
+  the Mullvad daemon's MTU probes black-hole and its tunnel monitor reconnects
+  every 2–11 minutes (diagnosed 2026-08-03; June baseline was ~5 reconnects in
+  two weeks). The `mullvad-tailscale-dns` watcher therefore boots the
+  `com.nicholassmith.qbt-wireguard` job **out** when Mullvad connects and
+  bootstraps it back when Mullvad disconnects (two NOPASSWD sudoers entries in
+  `qbt-tunnel/qbt-tunnel.sudoers`; transitions logged to syslog under
+  `mullvad-ts-dns`). Torrents pause while the Mullvad app is connected and
+  resume by themselves after. Failure is safe (stalled, never leaking).
 - Mullvad **split tunneling breaks interface-bound sockets** generally: it
   forces excluded apps onto the physical interface and everything else through
   its tunnel, either way overriding a `utun100` binding — so the SOCKS5 proxy
