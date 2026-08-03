@@ -1,4 +1,10 @@
-# Menu-bar actions for the qbt tunnel. Both targets are root-owned files the
+# Menu-bar actions for the qbt tunnel. All targets are root-owned files the
 # user cannot modify (never point NOPASSWD at anything user-writable).
 nicholassmith ALL=(root) NOPASSWD: /bin/launchctl kickstart -k system/com.nicholassmith.qbt-wireguard
 nicholassmith ALL=(root) NOPASSWD: /usr/local/libexec/qbt-tunnel/pin-qbt-relay.sh
+# DNS-watcher enforcement of Mullvad/qbt mutual exclusivity: the watcher tears
+# the qbt tunnel down while Mullvad is connected and restores it after (a live
+# or zombie utun100 alongside a connected Mullvad app makes its daemon flap;
+# diagnosed 2026-08-03, see README).
+nicholassmith ALL=(root) NOPASSWD: /bin/launchctl bootout system/com.nicholassmith.qbt-wireguard
+nicholassmith ALL=(root) NOPASSWD: /bin/launchctl bootstrap system /Library/LaunchDaemons/com.nicholassmith.qbt-wireguard.plist
