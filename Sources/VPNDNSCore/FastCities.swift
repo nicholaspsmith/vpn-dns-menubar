@@ -77,7 +77,7 @@ public func freshnessText(_ last: Date?, now: Date) -> String {
 
 /// Build the two menu sections (top-N cities each) plus the freshness footer.
 public func fastCitiesMenu(store: LatencyStore, currentRelay: String?, now: Date,
-                           topN: Int = 3) -> FastCitiesMenu {
+                           topN: Int = 5) -> FastCitiesMenu {
     func section(_ region: Region, _ header: String) -> MenuSection {
         let rows = store.topCities(region: region, n: topN).map { relay -> MenuRow in
             let ms = Int(store.ms(for: relay).rounded())
