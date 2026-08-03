@@ -73,13 +73,26 @@ final class QbtTunnelStatusTests: XCTestCase {
         XCTAssertEqual(s(true, true, true, true, true, true, "ca-mtr-wg-306"), .active(relay: "ca-mtr-wg-306"))
     }
 
+    // No text glyphs (○ ● ◐) — the menu row carries a real colored status dot.
     func testQbtRowLabels() {
-        XCTAssertEqual(qbtRowLabel(.active(relay: "ca-mtr-wg-306")), "qBittorrent: ● via ca-mtr-wg-306")
-        XCTAssertEqual(qbtRowLabel(.active(relay: nil)), "qBittorrent: ● tunneled")
-        XCTAssertEqual(qbtRowLabel(.qbtNotRunning), "qBittorrent: ● tunnel up · qbt not running")
-        XCTAssertEqual(qbtRowLabel(.qbtNotBound), "qBittorrent: ◐ qbt not using proxy")
-        XCTAssertEqual(qbtRowLabel(.proxyDown), "qBittorrent: ○ proxy down — torrents stalled (safe)")
-        XCTAssertEqual(qbtRowLabel(.tunnelDown), "qBittorrent: ○ tunnel down — torrents stalled (safe)")
+        XCTAssertEqual(qbtRowLabel(.active(relay: "ca-mtr-wg-306")), "qBittorrent: via ca-mtr-wg-306")
+        XCTAssertEqual(qbtRowLabel(.active(relay: nil)), "qBittorrent: tunneled")
+        XCTAssertEqual(qbtRowLabel(.qbtNotRunning), "qBittorrent: tunnel up · qbt not running")
+        XCTAssertEqual(qbtRowLabel(.qbtNotBound), "qBittorrent: qbt not using proxy")
+        XCTAssertEqual(qbtRowLabel(.proxyDown), "qBittorrent: proxy down — torrents stalled (safe)")
+        XCTAssertEqual(qbtRowLabel(.tunnelDown), "qBittorrent: tunnel down — torrents stalled (safe)")
         XCTAssertEqual(qbtRowLabel(.notInstalled), "qBittorrent: not installed")
+    }
+
+    // Grey = tunnel path down; orange = tunnel up but qbt not running/routed;
+    // green = fully active.
+    func testQbtDotColor() {
+        XCTAssertEqual(qbtDotColor(.tunnelDown), .grey)
+        XCTAssertEqual(qbtDotColor(.proxyDown), .grey)
+        XCTAssertEqual(qbtDotColor(.notInstalled), .grey)
+        XCTAssertEqual(qbtDotColor(.qbtNotRunning), .orange)
+        XCTAssertEqual(qbtDotColor(.qbtNotBound), .orange)
+        XCTAssertEqual(qbtDotColor(.active(relay: "ca-mtr-wg-306")), .green)
+        XCTAssertEqual(qbtDotColor(.active(relay: nil)), .green)
     }
 }
