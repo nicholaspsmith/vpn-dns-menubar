@@ -19,15 +19,35 @@ private func menuPool() -> CandidatePool {
 }
 
 final class FastCitiesMenuTests: XCTestCase {
-    func testSectionsHeadersAndTopThreeTitles() {
+    func testSectionsHeadersAndTopFiveTitles() {
         let s = LatencyStore(pool: menuPool())
         let m = fastCitiesMenu(store: s, currentRelay: nil, now: Date(timeIntervalSince1970: 0))
         XCTAssertEqual(m.us.header, "Fastest US (No-ID)")
         XCTAssertEqual(m.nonus.header, "Fastest Non-US (No-ID · torrent-safe)")
         XCTAssertEqual(m.us.rows.map { $0.title },
-                       ["Washington DC — 25 ms", "Secaucus, NJ — 28 ms", "Boston, MA — 35 ms"])
+                       ["Washington DC — 25 ms", "Secaucus, NJ — 28 ms", "Boston, MA — 35 ms",
+                        "Seattle, WA — 73 ms"])
         XCTAssertEqual(m.nonus.rows.map { $0.title },
                        ["Montreal — 37 ms", "Toronto — 43 ms", "Queretaro — 51 ms"])
+    }
+
+    func testTopFiveCapsAtFive() {
+        let pool = CandidatePool(
+            generated: "t",
+            us: [
+                CandidateRelay(city: "A", cc: "us", cityCode: "aaa", ip: "1", seedMs: 10),
+                CandidateRelay(city: "B", cc: "us", cityCode: "bbb", ip: "2", seedMs: 20),
+                CandidateRelay(city: "C", cc: "us", cityCode: "ccc", ip: "3", seedMs: 30),
+                CandidateRelay(city: "D", cc: "us", cityCode: "ddd", ip: "4", seedMs: 40),
+                CandidateRelay(city: "E", cc: "us", cityCode: "eee", ip: "5", seedMs: 50),
+                CandidateRelay(city: "F", cc: "us", cityCode: "fff", ip: "6", seedMs: 60),
+            ],
+            nonus: []
+        )
+        let s = LatencyStore(pool: pool)
+        let m = fastCitiesMenu(store: s, currentRelay: nil, now: Date(timeIntervalSince1970: 0))
+        XCTAssertEqual(m.us.rows.map { $0.cityCode }, ["aaa", "bbb", "ccc", "ddd", "eee"])
+        XCTAssertTrue(m.nonus.rows.isEmpty)
     }
     func testCurrentCityMarked() {
         let s = LatencyStore(pool: menuPool())
