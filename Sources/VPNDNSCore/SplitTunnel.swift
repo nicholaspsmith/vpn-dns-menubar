@@ -56,3 +56,9 @@ public func splitTunnelMenuTitle(_ enabled: Bool) -> String {
 public func splitTunnelToggleLabel(_ enabled: Bool) -> String {
     enabled ? "Disable Split Tunneling" : "Enable Split Tunneling"
 }
+
+/// Excluded apps to *display* in the menu: hides the app's own transient
+/// probe exclusion (`probePingPath`), which is plumbing, not a user choice.
+public func splitTunnelDisplayApps(_ apps: [String]) -> [String] {
+    apps.filter { $0 != probePingPath }
+}

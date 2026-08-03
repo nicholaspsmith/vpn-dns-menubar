@@ -39,4 +39,12 @@ final class SplitTunnelTests: XCTestCase {
         XCTAssertEqual(splitTunnelToggleLabel(true), "Disable Split Tunneling")
         XCTAssertEqual(splitTunnelToggleLabel(false), "Enable Split Tunneling")
     }
+
+    func testDisplayAppsHidesProbePing() {
+        XCTAssertEqual(
+            splitTunnelDisplayApps(["/Applications/Arc.app/Contents/MacOS/Arc", "/sbin/ping"]),
+            ["/Applications/Arc.app/Contents/MacOS/Arc"])
+        XCTAssertEqual(splitTunnelDisplayApps(["/sbin/ping"]), [])
+        XCTAssertEqual(splitTunnelDisplayApps([]), [])
+    }
 }
