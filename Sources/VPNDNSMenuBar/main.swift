@@ -317,6 +317,11 @@ final class App: NSObject, NSApplicationDelegate {
         menu.addItem(NSMenuItem.separator())
         addGroupHeader(menu, "Tailscale")
 
+        let dns = NSMenuItem(title: acceptDNSLabel(corpDNS), action: #selector(toggleAcceptDNS), keyEquivalent: "")
+        dns.target = self
+        dns.image = dotImage(nsColor(acceptDNSDotColor(corpDNS)))
+        menu.addItem(dns)
+
         let ts = NSMenuItem(title: tailscaleRowLabel(backend), action: #selector(openTailscale), keyEquivalent: "")
         ts.target = self
         menu.addItem(ts)
@@ -324,8 +329,6 @@ final class App: NSObject, NSApplicationDelegate {
         let tsToggle = NSMenuItem(title: tailscaleToggleLabel(backend), action: #selector(toggleTailscale), keyEquivalent: "")
         tsToggle.target = self
         menu.addItem(tsToggle)
-
-        menu.addItem(infoItem(acceptDNSLabel(corpDNS)))
 
         menu.addItem(NSMenuItem.separator())
 
@@ -390,6 +393,15 @@ final class App: NSObject, NSApplicationDelegate {
             case .up: _ = Shell.run(TS, ["up"])
             case .down: _ = Shell.run(TS, ["down"])
             }
+            DispatchQueue.main.async { self?.poll() }
+        }
+    }
+    // Manual override; the DNS watcher (event-driven) re-asserts its mapping on
+    // the next Mullvad connect/disconnect, so this holds only until then.
+    @objc private func toggleAcceptDNS() {
+        let target = corpDNS ? "false" : "true"
+        DispatchQueue.global().async { [weak self] in
+            _ = Shell.run(TS, ["set", "--accept-dns=\(target)"])
             DispatchQueue.main.async { self?.poll() }
         }
     }

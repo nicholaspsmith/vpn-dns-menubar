@@ -31,6 +31,11 @@ final class VPNPresentationTests: XCTestCase {
         XCTAssertEqual(tailscaleColor("Stopped"), .grey)
     }
 
+    func testAcceptDNSDotColor() {
+        XCTAssertEqual(acceptDNSDotColor(true), .green)
+        XCTAssertEqual(acceptDNSDotColor(false), .grey)
+    }
+
     // The menu-bar dot combines both states: blue when Tailscale is the active
     // path (Mullvad off + Tailscale running); Mullvad states otherwise win.
     func testDotBlueWhenTailscaleRunningAndMullvadOff() {
