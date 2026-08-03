@@ -18,6 +18,38 @@ private func nsColor(_ c: DotColor) -> NSColor {
     }
 }
 
+/// Maximum-contrast text color: pure black in light mode, pure white in dark.
+/// labelColor is ~85% alpha, which still reads washed-out for menu headers.
+private let maxContrastColor = NSColor(name: nil) { appearance in
+    appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua ? .white : .black
+}
+
+/// Non-clickable group header: bold at normal menu size and full contrast.
+/// (The native macOS 14 sectionHeader style was tried and rejected — its
+/// fixed small/muted rendering is exactly the hard-to-read look this avoids.)
+private func headerItem(_ title: String) -> NSMenuItem {
+    let item = NSMenuItem(title: title, action: nil, keyEquivalent: "")
+    item.isEnabled = false
+    item.attributedTitle = NSAttributedString(string: title, attributes: [
+        .font: NSFont.boldSystemFont(ofSize: NSFont.menuFont(ofSize: 0).pointSize),
+        .foregroundColor: maxContrastColor,
+    ])
+    return item
+}
+
+/// Non-clickable info row at full contrast: reads like content, never
+/// highlights, takes no click. (An explicit attributedTitle overrides
+/// AppKit's faint disabled-gray rendering.)
+private func infoItem(_ title: String) -> NSMenuItem {
+    let item = NSMenuItem(title: title, action: nil, keyEquivalent: "")
+    item.isEnabled = false
+    item.attributedTitle = NSAttributedString(string: title, attributes: [
+        .font: NSFont.menuFont(ofSize: 0),
+        .foregroundColor: NSColor.labelColor,
+    ])
+    return item
+}
+
 /// Pings candidate relays and records direct latency — but ONLY while Mullvad is
 /// off (pinging through the tunnel is unreliable). Runs off the main thread.
 final class LatencyProbe {
@@ -230,9 +262,7 @@ final class App: NSObject, NSApplicationDelegate {
     }
 
     private func addGroupHeader(_ menu: NSMenu, _ title: String) {
-        let header = NSMenuItem(title: title, action: nil, keyEquivalent: "")
-        header.isEnabled = false
-        menu.addItem(header)
+        menu.addItem(headerItem(title))
     }
 
     // Two headed groups: everything Mullvad (status, split tunnel, relay
@@ -251,15 +281,11 @@ final class App: NSObject, NSApplicationDelegate {
         addFastSection(menu, model.us)
         addFastSection(menu, model.nonus)
         if !model.us.rows.isEmpty || !model.nonus.rows.isEmpty {
-            let foot = NSMenuItem(title: model.footer, action: nil, keyEquivalent: "")
-            foot.isEnabled = false
-            menu.addItem(foot)
+            menu.addItem(infoItem(model.footer))
         }
 
         if qbtState != .notInstalled {
-            let qbt = NSMenuItem(title: qbtRowLabel(qbtState), action: nil, keyEquivalent: "")
-            qbt.isEnabled = false
-            menu.addItem(qbt)
+            menu.addItem(infoItem(qbtRowLabel(qbtState)))
             let restart = NSMenuItem(title: "Restart qBittorrent Tunnel", action: #selector(restartQbtTunnel), keyEquivalent: "")
             restart.target = self
             menu.addItem(restart)
@@ -277,9 +303,7 @@ final class App: NSObject, NSApplicationDelegate {
         tsToggle.target = self
         menu.addItem(tsToggle)
 
-        let dns = NSMenuItem(title: acceptDNSLabel(corpDNS), action: nil, keyEquivalent: "")
-        dns.isEnabled = false
-        menu.addItem(dns)
+        menu.addItem(infoItem(acceptDNSLabel(corpDNS)))
 
         menu.addItem(NSMenuItem.separator())
 
@@ -293,9 +317,7 @@ final class App: NSObject, NSApplicationDelegate {
 
     private func addFastSection(_ menu: NSMenu, _ section: MenuSection) {
         guard !section.rows.isEmpty else { return }
-        let header = NSMenuItem(title: section.header, action: nil, keyEquivalent: "")
-        header.isEnabled = false
-        menu.addItem(header)
+        menu.addItem(headerItem(section.header))
         for row in section.rows {
             let item = NSMenuItem(title: row.title, action: #selector(toggleCity(_:)), keyEquivalent: "")
             item.target = self
@@ -348,9 +370,7 @@ final class App: NSObject, NSApplicationDelegate {
         sub.addItem(toggle)
         if !splitTunnel.apps.isEmpty {
             sub.addItem(NSMenuItem.separator())
-            let header = NSMenuItem(title: "Excluded from VPN — click to remove", action: nil, keyEquivalent: "")
-            header.isEnabled = false
-            sub.addItem(header)
+            sub.addItem(headerItem("Excluded from VPN — click to remove"))
             for path in splitTunnel.apps {
                 let item = NSMenuItem(title: splitTunnelAppDisplayName(path), action: #selector(removeSplitTunnelApp(_:)), keyEquivalent: "")
                 item.target = self
@@ -372,9 +392,7 @@ final class App: NSObject, NSApplicationDelegate {
         let root = NSMenuItem(title: "qBittorrent Exit", action: nil, keyEquivalent: "")
         let sub = NSMenu()
         if qbtExitCandidates.isEmpty {
-            let none = NSMenuItem(title: "Loading candidates…", action: nil, keyEquivalent: "")
-            none.isEnabled = false
-            sub.addItem(none)
+            sub.addItem(infoItem("Loading candidates…"))
         } else {
             for c in qbtExitCandidates {
                 let item = NSMenuItem(title: c.display, action: #selector(switchQbtExit(_:)), keyEquivalent: "")
