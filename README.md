@@ -19,32 +19,60 @@ The menu bar shows **one icon**: a single status dot that tracks Mullvad.
 | Blocked | ![blocked](screenshots/menubar-blocked.png) |
 | Off / disconnected | ![off](screenshots/menubar-off.png) |
 
-Clicking it opens a dropdown:
+Clicking it opens a dropdown, grouped into three bold section headers:
 
 ```
-●                                    ← the menu-bar title (status dot)
-──────────────────────────────────────
-accept-dns (MagicDNS): ON/OFF        (non-clickable status)
-──────────────────────────────────────
-Mullvad: Connected — us-bos-wg-001   → click opens the NATIVE Mullvad menu
-Tailscale: Running                   → click opens the Tailscale app
+Mullvad                                   ← bold section header
+  ●  Connected — Denver, CO               → click opens the NATIVE Mullvad menu
+  Split Tunnel: On                       ▸ toggle + excluded-app list
+  Fastest US (No-ID)                     ▸ top-5 cities, ✓ = current
+  Fastest Non-US (No-ID · torrent-safe)  ▸
+──────────────────────────────────────────
+qBittorrent                               ← bold section header
+  ●  qBittorrent: via ca-mtr-wg-306       → click opens qBittorrent
+  Restart qBittorrent Tunnel
+  qBittorrent Exit                       ▸
+──────────────────────────────────────────
+Tailscale                                 ← bold section header
+  ●  accept-dns (MagicDNS): ON            → click toggles accept-dns
+  Status: Running                         → click opens the Tailscale app
+  Disconnect Tailscale
+──────────────────────────────────────────
+Start at Login
+──────────────────────────────────────────
+Quit
 ```
 
-The two bottom rows' **labels are the live status**, and clicking them acts: Mullvad
-opens its real popover (location picker, etc.); Tailscale opens its app. Text is
-green when connected/running and grey when off/stopped.
+Section headers are bold, full-contrast, non-clickable; informational rows render
+at full contrast too (never the faint disabled gray). **Status rows carry a colored
+dot**: the Mullvad row reuses the menu-bar mapping (green connected · orange
+connecting/disconnecting · red blocked · grey off); the qBittorrent row is grey
+(tunnel path down — torrents stalled, safe), orange (path up but qbt not
+running/not routed), or green (fully active), and clicking it opens qBittorrent;
+the accept-dns row is green (ON) / grey (OFF), and clicking it toggles
+`tailscale set --accept-dns`. That toggle is a *temporary override* — the DNS
+watcher (below) re-asserts its mapping on the next Mullvad connect/disconnect.
 
-Below the Mullvad and Tailscale rows the menu shows two **fastest-city sections**:
-"Fastest US (No-ID)" and "Fastest Non-US (No-ID · torrent-safe)" — the top-3 cities
-from the candidate list ranked by latency. Clicking a city connects Mullvad to that
-city (setting the relay location then running `mullvad connect`); clicking the
-currently-active city disconnects (toggle behavior). A checkmark (✓) marks the city
-you're connected to. A freshness footer shows when the latencies were last measured.
+The two **fastest-city submenus** — "Fastest US (No-ID)" and "Fastest Non-US
+(No-ID · torrent-safe)" — list the top-5 cities from the candidate list ranked by
+latency. Clicking a city connects Mullvad to that city (setting the relay location
+then running `mullvad connect`); clicking the currently-active city disconnects
+(toggle behavior). A checkmark (✓) marks the city you're connected to, and a
+freshness footer at the bottom of each submenu shows when the latencies were last
+measured.
 
-Latency is measured by direct ICMP pings (`/sbin/ping`) only while Mullvad is
-**disconnected** — pinging through the tunnel is unreliable. On first run, and until
-a live measurement completes, the app falls back to seed values baked into
-`Resources/bundle/candidates.json`. Measurements persist across restarts in
+Latency is re-measured by direct ICMP pings (`/sbin/ping`) when the newest
+measurement is older than **12 hours** (checked every 15 minutes and on
+Mullvad-off transitions): normally while Mullvad is disconnected; if Mullvad is
+connected and split tunneling is *already* on, the app temporarily adds
+`/sbin/ping` to the split-tunnel exclusions so pings bypass the tunnel, verifies
+the exclusion took (re-checking again before recording), then removes it. It
+never turns split tunneling on or off itself — connected + split-tunneling-off
+just waits for the next off-window — and it hides the transient exclusion from
+the Split Tunnel submenu (with a startup sweep so a crash can't leave it
+behind). On first run, and until a live measurement completes, the app falls
+back to seed values baked into `Resources/bundle/candidates.json`. Measurements
+persist across restarts in
 `~/Library/Application Support/VPNDNSMenuBar/latency.json`. To refresh the
 candidate list (update which cities qualify under No-ID rules):
 
@@ -276,8 +304,11 @@ else — `Address`/`DNS`/`MTU` are wg-quick keys and break `wg setconf`), write
   passwordless via the sudoers rule. `pin-qbt-relay.sh --list` prints the
   candidates; `--city <cc-city>` pins a specific city.
 - Logs: `/var/log/qbt-wireguard.log`.
-- Menu row: `●  via <relay>` (confirmed exit) · `● tunnel up · qbt not running` ·
-  `◐ tunnel up · qbt not bound` · `○ tunnel down — torrents stalled (safe)`.
+- Menu row (own "qBittorrent" section; click opens qBittorrent): label states
+  `via <relay>` (confirmed exit) · `tunnel up · qbt not running` ·
+  `qbt not using proxy` · `tunnel down — torrents stalled (safe)`, with a
+  colored dot: green = fully active, orange = path up but qbt not
+  running/routed, grey = tunnel path down.
   **Restart qBittorrent Tunnel** kicks the daemon (passwordless via
   `/etc/sudoers.d/qbt-tunnel`).
 
