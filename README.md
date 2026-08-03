@@ -23,7 +23,7 @@ Clicking it opens a dropdown, grouped into three bold section headers:
 
 ```
 Mullvad                                   ← bold section header
-  ●  Connected — Denver, CO               → click opens the NATIVE Mullvad menu
+  ●  Connected — Denver, CO               → click toggles the VPN connection
   Split Tunnel: On                       ▸ toggle + excluded-app list
   Fastest US (No-ID)                     ▸ top-5 cities, ✓ = current
   Fastest Non-US (No-ID · torrent-safe)  ▸
@@ -46,7 +46,9 @@ Quit
 Section headers are bold, full-contrast, non-clickable; informational rows render
 at full contrast too (never the faint disabled gray). **Status rows carry a colored
 dot**: the Mullvad row reuses the menu-bar mapping (green connected · orange
-connecting/disconnecting · red blocked · grey off); the qBittorrent row is grey
+connecting/disconnecting · red blocked · grey off), and clicking it toggles the
+connection — connect goes to Mullvad's own persisted relay selection (whatever
+was last chosen via the fast-city submenus or the native app); the qBittorrent row is grey
 (tunnel path down — torrents stalled, safe), orange (path up but qbt not
 running/not routed), or green (fully active), and clicking it opens qBittorrent;
 the accept-dns row is green (ON) / grey (OFF), and clicking it toggles

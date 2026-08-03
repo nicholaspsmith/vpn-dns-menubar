@@ -338,7 +338,7 @@ final class App: NSObject, NSApplicationDelegate {
     private func build(_ menu: NSMenu) {
         addGroupHeader(menu, "Mullvad")
 
-        let mv = NSMenuItem(title: mullvadRowLabel(mullvad), action: #selector(openMullvad), keyEquivalent: "")
+        let mv = NSMenuItem(title: mullvadRowLabel(mullvad), action: #selector(toggleMullvad), keyEquivalent: "")
         mv.target = self
         mv.image = dotImage(nsColor(dotColor(for: mullvad.state)))
         menu.addItem(mv)
@@ -422,11 +422,17 @@ final class App: NSObject, NSApplicationDelegate {
         }
     }
 
-    // Open Mullvad's native popover by AX-clicking its status item (inlined from
-    // assets/open-native-menu.sh). Needs Accessibility + Automation permission.
-    @objc private func openMullvad() {
-        _ = Shell.run("/usr/bin/osascript", ["-e",
-            "tell application \"System Events\" to tell process \"Mullvad VPN\" to click menu bar item 1 of menu bar 2"])
+    // Connect goes to Mullvad's persisted relay selection — no app-side copy
+    // to go stale if the endpoint is changed in the native app.
+    @objc private func toggleMullvad() {
+        let action = mullvadToggle(mullvad.state)
+        DispatchQueue.global().async { [weak self] in
+            switch action {
+            case .connect: _ = Shell.run(MULLVAD, ["connect"])
+            case .disconnect: _ = Shell.run(MULLVAD, ["disconnect"])
+            }
+            DispatchQueue.main.async { self?.poll() }
+        }
     }
     @objc private func openTailscale() {
         _ = Shell.run("/usr/bin/open", ["-a", "Tailscale"])
