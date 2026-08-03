@@ -278,11 +278,8 @@ final class App: NSObject, NSApplicationDelegate {
         menu.addItem(buildSplitTunnelItem())
 
         let model = fastCitiesMenu(store: store, currentRelay: mullvad.relay, now: Date())
-        addFastSection(menu, model.us)
-        addFastSection(menu, model.nonus)
-        if !model.us.rows.isEmpty || !model.nonus.rows.isEmpty {
-            menu.addItem(infoItem(model.footer))
-        }
+        if !model.us.rows.isEmpty { menu.addItem(fastCitiesSubmenuItem(model.us, footer: model.footer)) }
+        if !model.nonus.rows.isEmpty { menu.addItem(fastCitiesSubmenuItem(model.nonus, footer: model.footer)) }
 
         if qbtState != .notInstalled {
             menu.addItem(infoItem(qbtRowLabel(qbtState)))
@@ -315,16 +312,22 @@ final class App: NSObject, NSApplicationDelegate {
         menu.addItem(NSMenuItem(title: "Quit", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
     }
 
-    private func addFastSection(_ menu: NSMenu, _ section: MenuSection) {
-        guard !section.rows.isEmpty else { return }
-        menu.addItem(headerItem(section.header))
+    // One top-level item per fastest-cities section; city rows + freshness
+    // footer live in its submenu so the top level stays short.
+    private func fastCitiesSubmenuItem(_ section: MenuSection, footer: String) -> NSMenuItem {
+        let root = NSMenuItem(title: section.header, action: nil, keyEquivalent: "")
+        let sub = NSMenu()
         for row in section.rows {
             let item = NSMenuItem(title: row.title, action: #selector(toggleCity(_:)), keyEquivalent: "")
             item.target = self
             item.state = row.isCurrent ? .on : .off
             item.representedObject = ["cc": row.cc, "city": row.cityCode]
-            menu.addItem(item)
+            sub.addItem(item)
         }
+        sub.addItem(NSMenuItem.separator())
+        sub.addItem(infoItem(footer))
+        root.submenu = sub
+        return root
     }
 
     @objc private func toggleCity(_ sender: NSMenuItem) {
