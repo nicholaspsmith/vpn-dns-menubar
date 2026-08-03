@@ -36,6 +36,16 @@ final class VPNPresentationTests: XCTestCase {
         XCTAssertEqual(acceptDNSDotColor(false), .grey)
     }
 
+    // Off connects (to Mullvad's own persisted relay selection); any live or
+    // in-flight state disconnects.
+    func testMullvadToggle() {
+        XCTAssertEqual(mullvadToggle(.off), .connect)
+        XCTAssertEqual(mullvadToggle(.connected), .disconnect)
+        XCTAssertEqual(mullvadToggle(.connecting), .disconnect)
+        XCTAssertEqual(mullvadToggle(.disconnecting), .disconnect)
+        XCTAssertEqual(mullvadToggle(.blocked), .disconnect)
+    }
+
     // The menu-bar dot combines both states: blue when Tailscale is the active
     // path (Mullvad off + Tailscale running); Mullvad states otherwise win.
     func testDotBlueWhenTailscaleRunningAndMullvadOff() {
