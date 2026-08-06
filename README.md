@@ -1,12 +1,16 @@
 # vpn-dns-menubar
 
 One macOS menu-bar icon that consolidates **Mullvad VPN** and **Tailscale** into a
-single status dot, with a click-through dropdown to each app — plus a small launchd
-watcher that keeps DNS working when both run at once.
+single status dot, with a sectioned dropdown covering both apps plus the dedicated
+qBittorrent tunnel — and a small launchd watcher with two duties: keep DNS working
+when Mullvad and Tailscale run at once, and keep Mullvad and the qbt tunnel from
+running at the same time (they destabilize each other; see Known limitations).
 
-It's a [SwiftBar](https://github.com/swiftbar/SwiftBar) plugin. Hide the two native
-Mullvad/Tailscale menu-bar icons (e.g. with [Ice](https://github.com/jordanbaird/Ice))
-and let this be the only one.
+The primary deliverable is the standalone **"VPN & DNS.app"** (see
+"Standalone Swift app" below). The original
+[SwiftBar](https://github.com/swiftbar/SwiftBar) plugin remains in the repo as a
+retired fallback. Hide the two native Mullvad/Tailscale menu-bar icons (e.g. with
+[Ice](https://github.com/jordanbaird/Ice)) and let this be the only one.
 
 ## What you see
 
@@ -120,7 +124,7 @@ native Mullvad/Tailscale icons.
 | `assets/open-native-menu.sh` | Helper: `… mullvad\|tailscale` → AX-clicks the app's menu-bar item to open its native menu. |
 | `assets/mullvad.png`, `tailscale.png` | App icons shown on the dropdown rows. |
 | `assets/menubar-{green,orange,red,grey}.png` | Dot-only icons (24×44, 16px dot). **Unused fallback** — the bar is now an SF Symbol; kept in case the PNG route is wanted again. |
-| `dns-watcher/mullvad-tailscale-dns-sync.sh` | The launchd watcher (driven by `mullvad status listen`). |
+| `dns-watcher/mullvad-tailscale-dns-sync.sh` | The launchd watcher (driven by `mullvad status listen`): toggles Tailscale `accept-dns` and enforces Mullvad/qbt-tunnel mutual exclusivity. |
 | `dns-watcher/com.nicholassmith.mullvad-tailscale-dns.plist` | LaunchAgent template (`__SCRIPT__` filled in by `install.sh`). |
 | `install.sh` | Symlink the plugin + load the agent. |
 
@@ -209,25 +213,26 @@ open "swiftbar://refreshallplugins"
 
 ## Standalone Swift app
 
-The repo also ships a standalone Swift menu-bar app, `VPNDNSMenuBar`
-(bundle **"VPN & DNS.app"**), built on
-[StatusItemKit](https://github.com/nicholaspsmith/StatusItemKit). It's a
-native AppKit reimplementation of the SwiftBar plugin: it polls
-`mullvad`/`tailscale` every 5s, shows a colored status dot tracking Mullvad
-state, and drops down a three-row menu (accept-dns/MagicDNS state, a Mullvad
-row, and a Tailscale row) plus Start at Login and Quit. All output parsing
-lives in a pure, unit-tested `VPNDNSCore` library.
+The repo's primary deliverable is a standalone Swift menu-bar app,
+`VPNDNSMenuBar` (bundle **"VPN & DNS.app"**), built on
+[StatusItemKit](https://github.com/nicholaspsmith/StatusItemKit). It polls
+`mullvad`/`tailscale` every 5s, shows the colored menu-bar dot, and builds the
+sectioned dropdown described under "What you see": bold section headers,
+per-row status dots, top-5 fastest-city submenus, the qBittorrent section, and
+click-to-toggle rows (Mullvad connection, Tailscale, accept-dns). All output
+parsing, label text, and probe/staleness decisions live in a pure, unit-tested
+`VPNDNSCore` library.
 
 ```sh
-./scripts/build-app.sh          # produces build/VPN & DNS.app (ad-hoc signed)
+./scripts/build-app.sh   # build/VPN & DNS.app (stable self-signed identity if present, else ad-hoc)
 open "build/VPN & DNS.app"
 ```
 
-Clicking the Mullvad row opens Mullvad's native popover via an AppleScript
-AX-click, so the app needs **Accessibility + Automation** permission granted
-to "VPN & DNS" (you'll be prompted on first use). The SwiftBar plugin remains
-available and unchanged, and the launchd DNS-sync agent under `dns-watcher/`
-is shared and untouched.
+Clicking the Mullvad row toggles the connection via the `mullvad` CLI —
+connect goes to Mullvad's own persisted relay selection. (The old AppleScript
+AX-click that opened the native popover is gone, and with it the app's
+Accessibility/Automation requirement.) The SwiftBar plugin remains in the repo
+unchanged, and the launchd DNS-sync agent under `dns-watcher/` is shared.
 
 ### Start at Login
 
@@ -372,7 +377,9 @@ and delete the device on mullvad.net (frees the slot).
 # plugin
 rm ~/.config/SwiftBar/vpn-dns-control.5s.sh
 
-# DNS watcher
+# DNS watcher (also drops the Mullvad/qbt exclusivity enforcement — if the qbt
+# tunnel is installed and was booted out by a connected Mullvad, restore it with:
+# sudo launchctl bootstrap system /Library/LaunchDaemons/com.nicholassmith.qbt-wireguard.plist)
 launchctl bootout "gui/$(id -u)/com.nicholassmith.mullvad-tailscale-dns"
 rm ~/Library/LaunchAgents/com.nicholassmith.mullvad-tailscale-dns.plist
 tailscale set --accept-dns=true   # restore default

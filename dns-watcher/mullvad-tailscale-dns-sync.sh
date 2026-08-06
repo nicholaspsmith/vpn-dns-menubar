@@ -11,6 +11,11 @@
 # Mullvad disconnects (so MagicDNS / the tailnet keep working normally). This watcher
 # reacts to Mullvad connection-state changes for BOTH the GUI app and the CLI.
 #
+# SECOND DUTY: the same state changes enforce Mullvad/qbt-tunnel mutual
+# exclusivity — the qbt WireGuard job is booted out while Mullvad is up and
+# bootstrapped back on disconnect (see set_qbt_tunnel below and the README's
+# qbt Known limitations; a coexisting utun100 makes the Mullvad daemon flap).
+#
 # Managed by launchd: com.nicholassmith.mullvad-tailscale-dns (see ../install.sh).
 # To remove: launchctl bootout gui/$(id -u)/com.nicholassmith.mullvad-tailscale-dns
 #            rm ~/Library/LaunchAgents/com.nicholassmith.mullvad-tailscale-dns.plist
