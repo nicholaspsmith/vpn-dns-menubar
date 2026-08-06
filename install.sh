@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Install vpn-dns-menubar:
 #   1) symlink the SwiftBar plugin into SwiftBar's plugin dir
-#   2) load the launchd DNS-sync agent (toggles Tailscale accept-dns with Mullvad)
+#   2) load the launchd DNS-sync agent (toggles Tailscale accept-dns with Mullvad
+#      and enforces Mullvad/qbt-tunnel mutual exclusivity when that's installed)
 #
 # The repo is the source of truth: the plugin self-locates its ./assets via its
 # real path, and the launchd agent runs the script straight out of the repo.
