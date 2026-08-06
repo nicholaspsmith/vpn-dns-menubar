@@ -88,12 +88,13 @@ scripts/refresh-candidates.sh
 
 ## Requirements
 
-- macOS 11+ (the dot uses an SF Symbol)
-- [SwiftBar](https://github.com/swiftbar/SwiftBar) — `brew install --cask swiftbar`
+- macOS 13+ (the Swift app's platform floor)
+- Xcode Command Line Tools (Swift 5.9+) to build the app — `xcode-select --install`
 - [Mullvad VPN](https://mullvad.net/) (CLI at `/usr/local/bin/mullvad`) and
   [Tailscale](https://tailscale.com/) (the Mac app, not the standalone CLI)
 - Optional: [Ice](https://github.com/jordanbaird/Ice) to hide the native icons;
-  ImageMagick (`brew install imagemagick`) only if you rebuild the fallback PNGs
+  [SwiftBar](https://github.com/swiftbar/SwiftBar) (`brew install --cask swiftbar`)
+  only if you wire the retired plugin fallback
 
 ## Install
 
@@ -105,38 +106,44 @@ cd vpn-dns-menubar
 
 `install.sh` is idempotent and:
 
-1. **Symlinks** `vpn-dns-control.5s.sh` into `~/.config/SwiftBar/` (override the
-   target with `SWIFTBAR_PLUGIN_DIR`). The repo stays the source of truth — the
-   plugin finds its `assets/` via its own real path, so nothing else is copied.
+1. **Builds "VPN & DNS.app"** (`scripts/build-app.sh`), symlinks it into
+   `~/Applications` (SMAppService requires that location; the repo's `build/`
+   stays the source of truth so rebuilds propagate), and opens it.
 2. Generates the launchd plist from the template and **bootstraps the DNS-sync
-   agent** (`com.nicholassmith.mullvad-tailscale-dns`).
-3. Refreshes SwiftBar.
+   agent** (`com.nicholassmith.mullvad-tailscale-dns`) — DNS sync plus
+   Mullvad/qbt-tunnel exclusivity.
 
-Then grant **SwiftBar** Accessibility + Automation permission (System Settings →
-Privacy & Security) so the Mullvad row can open the native popover, and hide the
-native Mullvad/Tailscale icons.
+Then use the menu's **Start at Login** toggle and hide the native
+Mullvad/Tailscale icons. No Accessibility/Automation permission is needed.
+
+`./install.sh --swiftbar` additionally symlinks the retired plugin fallback
+`vpn-dns-control.5s.sh` into `~/.config/SwiftBar/` (override with
+`SWIFTBAR_PLUGIN_DIR`) and refreshes SwiftBar — that path *does* need SwiftBar
+granted Accessibility + Automation for its Mullvad row's native popover.
 
 ## Repo layout
 
 | Path | Role |
 |------|------|
-| `vpn-dns-control.5s.sh` | **The plugin.** Symlinked into SwiftBar's plugin dir; refresh interval (`.5s.`) is in the filename. |
+| `vpn-dns-control.5s.sh` | **The SwiftBar plugin (retired fallback).** Symlinked into SwiftBar's plugin dir by `--swiftbar`; refresh interval (`.5s.`) is in the filename. |
 | `assets/open-native-menu.sh` | Helper: `… mullvad\|tailscale` → AX-clicks the app's menu-bar item to open its native menu. |
 | `assets/mullvad.png`, `tailscale.png` | App icons shown on the dropdown rows. |
 | `assets/menubar-{green,orange,red,grey}.png` | Dot-only icons (24×44, 16px dot). **Unused fallback** — the bar is now an SF Symbol; kept in case the PNG route is wanted again. |
 | `dns-watcher/mullvad-tailscale-dns-sync.sh` | The launchd watcher (driven by `mullvad status listen`): toggles Tailscale `accept-dns` and enforces Mullvad/qbt-tunnel mutual exclusivity. |
 | `dns-watcher/com.nicholassmith.mullvad-tailscale-dns.plist` | LaunchAgent template (`__SCRIPT__` filled in by `install.sh`). |
-| `install.sh` | Symlink the plugin + load the agent. |
+| `install.sh` | Build + link the app and load the agent (`--swiftbar` also wires the plugin fallback). |
 
 > ⚠️ **Only the plugin may live in SwiftBar's plugin dir.** SwiftBar loads *every*
 > file there as its own menu-bar item, so a stray script/PNG/README would create
 > phantom icons. That's why the assets live in `assets/` and only the plugin is
 > symlinked.
 
-## The dot: size & color
+## The dot: size & color (SwiftBar plugin fallback)
 
-The dot is an **inline SF Symbol token** — the literal `:circle.fill:` in the
-plugin's title *text* — colored with `sfcolor` and sized with `sfsize=6`:
+(The Swift app draws its dot natively via StatusItemKit; this section applies
+only to the retired plugin.) The dot is an **inline SF Symbol token** — the
+literal `:circle.fill:` in the plugin's title *text* — colored with `sfcolor`
+and sized with `sfsize=6`:
 
 ```sh
 echo ":circle.fill: | sfcolor=${mv_color} sfsize=6"
@@ -151,10 +158,12 @@ high/low.
 > honor `sfsize` (verified in SwiftBar's source: `symbolize()` builds the symbol
 > with `SymbolConfiguration(pointSize: sfsize ?? font.pointSize, ...)`).
 
-## Native menu opening (the AX trick)
+## Native menu opening (the AX trick — SwiftBar plugin fallback)
 
-macOS has no API to *re-open* another app's menu-bar dropdown, so
-`assets/open-native-menu.sh` simulates a click on the status item via System Events:
+(The Swift app no longer uses this: its Mullvad row toggles the connection via
+the CLI instead.) macOS has no API to *re-open* another app's menu-bar
+dropdown, so `assets/open-native-menu.sh` simulates a click on the status item
+via System Events:
 
 ```applescript
 tell application "System Events" to tell process "Mullvad VPN" to click menu bar item 1 of menu bar 2
@@ -182,9 +191,10 @@ split-tunnel can't exclude Tailscale's system network extension — tested, does
 work). So reaching a tailnet host means `mullvad disconnect` → do the thing →
 `mullvad connect`.
 
-## Rebuilding the icons
+## Rebuilding the icons (SwiftBar plugin fallback)
 
-The menu-bar **dot** needs no rebuild — it's an SF Symbol; resize via `sfsize=`.
+(The Swift app has no PNG assets — its dot is drawn in code.) The plugin's
+menu-bar **dot** needs no rebuild — it's an SF Symbol; resize via `sfsize=`.
 Only the **dropdown-row** icons are PNGs (run from the repo root):
 
 ```sh
@@ -374,7 +384,11 @@ and delete the device on mullvad.net (frees the slot).
 ## Uninstall
 
 ```sh
-# plugin
+# app (toggle Start at Login off in the menu first, or remove it from Login Items)
+pkill -x VPNDNSMenuBar
+rm ~/Applications/"VPN & DNS.app"
+
+# plugin (only if wired via --swiftbar)
 rm ~/.config/SwiftBar/vpn-dns-control.5s.sh
 
 # DNS watcher (also drops the Mullvad/qbt exclusivity enforcement — if the qbt
