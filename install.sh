@@ -1,23 +1,24 @@
 #!/usr/bin/env bash
 # Install vpn-dns-menubar:
-#   1) symlink the SwiftBar plugin into SwiftBar's plugin dir
+#   1) build the standalone "VPN & DNS.app" and symlink it into ~/Applications
 #   2) load the launchd DNS-sync agent (toggles Tailscale accept-dns with Mullvad
 #      and enforces Mullvad/qbt-tunnel mutual exclusivity when that's installed)
+# Optional: `./install.sh --swiftbar` also wires the retired SwiftBar plugin
+# fallback (see README).
 #
-# The repo is the source of truth: the plugin self-locates its ./assets via its
-# real path, and the launchd agent runs the script straight out of the repo.
+# The repo is the source of truth: the app symlink points at build/, and the
+# launchd agent runs the watcher script straight out of the repo.
 # Re-running is safe (idempotent).
 set -euo pipefail
 
 SRC_DIR="$(cd "$(dirname "$0")" && pwd)"
-PLUGIN_DIR="${SWIFTBAR_PLUGIN_DIR:-$HOME/.config/SwiftBar}"
 
-# --- SwiftBar plugin -------------------------------------------------------
-chmod +x "$SRC_DIR/vpn-dns-control.5s.sh" "$SRC_DIR/assets/open-native-menu.sh"
-mkdir -p "$PLUGIN_DIR"
-ln -sf "$SRC_DIR/vpn-dns-control.5s.sh" "$PLUGIN_DIR/vpn-dns-control.5s.sh"
-echo "Linked plugin -> $PLUGIN_DIR/vpn-dns-control.5s.sh"
-echo "  (keep assets OUT of $PLUGIN_DIR -- SwiftBar loads every file there as its own icon)"
+# --- standalone app --------------------------------------------------------
+"$SRC_DIR/scripts/build-app.sh"
+mkdir -p "$HOME/Applications"
+ln -sfn "$SRC_DIR/build/VPN & DNS.app" "$HOME/Applications/VPN & DNS.app"
+echo "Linked app -> ~/Applications/VPN & DNS.app (SMAppService requires it there)"
+/usr/bin/open "$HOME/Applications/VPN & DNS.app"
 
 # --- launchd DNS-sync agent ------------------------------------------------
 LABEL="com.nicholassmith.mullvad-tailscale-dns"
@@ -29,14 +30,23 @@ mkdir -p "$LA"
 sed -e "s|__SCRIPT__|$WATCH|g" "$SRC_DIR/dns-watcher/$LABEL.plist" > "$PLIST"
 launchctl bootout "gui/$(id -u)/$LABEL" 2>/dev/null || true
 launchctl bootstrap "gui/$(id -u)" "$PLIST" 2>/dev/null || launchctl load -w "$PLIST"
-echo "Loaded launchd agent $LABEL (Tailscale accept-dns follows Mullvad state)."
+echo "Loaded launchd agent $LABEL (accept-dns + qbt-tunnel exclusivity follow Mullvad state)."
 
-# --- refresh ---------------------------------------------------------------
-/usr/bin/open "swiftbar://refreshallplugins" 2>/dev/null || true
+# --- SwiftBar plugin (retired fallback; opt-in) ----------------------------
+if [[ "${1:-}" == "--swiftbar" ]]; then
+    PLUGIN_DIR="${SWIFTBAR_PLUGIN_DIR:-$HOME/.config/SwiftBar}"
+    chmod +x "$SRC_DIR/vpn-dns-control.5s.sh" "$SRC_DIR/assets/open-native-menu.sh"
+    mkdir -p "$PLUGIN_DIR"
+    ln -sf "$SRC_DIR/vpn-dns-control.5s.sh" "$PLUGIN_DIR/vpn-dns-control.5s.sh"
+    echo "Linked plugin -> $PLUGIN_DIR/vpn-dns-control.5s.sh"
+    echo "  (keep assets OUT of $PLUGIN_DIR -- SwiftBar loads every file there as its own icon)"
+    /usr/bin/open "swiftbar://refreshallplugins" 2>/dev/null || true
+fi
+
 echo
-echo "Done. Hide the native Mullvad/Tailscale icons (e.g. with Ice) so this is the"
-echo "only one visible. SwiftBar needs Accessibility + Automation permission for the"
-echo "Mullvad row's native popover. See README.md for details and uninstall steps."
+echo "Done. Use the menu's 'Start at Login' toggle, and hide the native"
+echo "Mullvad/Tailscale icons (e.g. with Ice) so this is the only one visible."
+echo "See README.md for details and uninstall steps."
 
 echo
 echo "Optional: dedicated always-on Mullvad tunnel for qBittorrent:"
