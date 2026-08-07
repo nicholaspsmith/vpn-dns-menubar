@@ -350,8 +350,12 @@ else — `Address`/`DNS`/`MTU` are wg-quick keys and break `wg setconf`), write
   `com.nicholassmith.qbt-wireguard` job **out** when Mullvad connects and
   bootstraps it back when Mullvad disconnects (two NOPASSWD sudoers entries in
   `qbt-tunnel/qbt-tunnel.sudoers`; transitions logged to syslog under
-  `mullvad-ts-dns`). Torrents pause while the Mullvad app is connected and
-  resume by themselves after. Failure is safe (stalled, never leaking).
+  `mullvad-ts-dns`). Menu-initiated connects (Mullvad row, fastest-city picks)
+  tear the tunnel down *before* the handshake — the watcher reacting to the
+  Connecting event lands mid-handshake and stutters the connect — so the
+  watcher is the safety net for connects made from the Mullvad GUI/CLI.
+  Torrents pause while the Mullvad app is connected and resume by themselves
+  after. Failure is safe (stalled, never leaking).
 - Mullvad **split tunneling breaks interface-bound sockets** generally: it
   forces excluded apps onto the physical interface and everything else through
   its tunnel, either way overriding a `utun100` binding — so the SOCKS5 proxy
