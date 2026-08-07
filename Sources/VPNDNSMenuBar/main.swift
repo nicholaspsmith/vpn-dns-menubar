@@ -410,11 +410,13 @@ final class App: NSObject, NSApplicationDelegate {
         guard let info = sender.representedObject as? [String: String],
               let cc = info["cc"], let city = info["city"] else { return }
         let action = toggleAction(currentRelay: mullvad.relay, clickedCC: cc, clickedCityCode: city)
+        let qbtInstalled = qbtState != .notInstalled
         DispatchQueue.global().async { [weak self] in
             switch action {
             case .disconnect:
                 _ = Shell.run(MULLVAD, ["disconnect"])
             case .connect(let cc, let city):
+                if qbtInstalled { self?.teardownQbtTunnelBlocking() }
                 _ = Shell.run(MULLVAD, ["relay", "set", "location", cc, city])
                 _ = Shell.run(MULLVAD, ["connect"])
             }
@@ -422,13 +424,31 @@ final class App: NSObject, NSApplicationDelegate {
         }
     }
 
+    // Tear the qbt tunnel down BEFORE `mullvad connect`: the DNS watcher also
+    // boots it out on the Connecting event, but that lands mid-handshake and
+    // stutters the connect (routes churn during the daemon's connectivity
+    // check). Blocking — bootout plus up to ~3s for utun100 to vanish so the
+    // handshake starts on a settled routing table; call off-main.
+    private func teardownQbtTunnelBlocking() {
+        _ = Shell.run("/usr/bin/sudo",
+            ["-n", "/bin/launchctl", "bootout", "system/com.nicholassmith.qbt-wireguard"],
+            timeout: 10)
+        for _ in 0..<10 {
+            if Shell.run("/sbin/ifconfig", [QBT_IFACE], timeout: 2) == nil { return }  // exit 1 = gone
+            usleep(300_000)
+        }
+    }
+
     // Connect goes to Mullvad's persisted relay selection — no app-side copy
     // to go stale if the endpoint is changed in the native app.
     @objc private func toggleMullvad() {
         let action = mullvadToggle(mullvad.state)
+        let qbtInstalled = qbtState != .notInstalled
         DispatchQueue.global().async { [weak self] in
             switch action {
-            case .connect: _ = Shell.run(MULLVAD, ["connect"])
+            case .connect:
+                if qbtInstalled { self?.teardownQbtTunnelBlocking() }
+                _ = Shell.run(MULLVAD, ["connect"])
             case .disconnect: _ = Shell.run(MULLVAD, ["disconnect"])
             }
             DispatchQueue.main.async { self?.poll() }
