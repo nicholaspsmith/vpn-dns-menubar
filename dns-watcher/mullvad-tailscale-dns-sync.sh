@@ -11,11 +11,6 @@
 # Mullvad disconnects (so MagicDNS / the tailnet keep working normally). This watcher
 # reacts to Mullvad connection-state changes for BOTH the GUI app and the CLI.
 #
-# SECOND DUTY: the same state changes enforce Mullvad/qbt-tunnel mutual
-# exclusivity — the qbt WireGuard job is booted out while Mullvad is up and
-# bootstrapped back on disconnect (see set_qbt_tunnel below and the README's
-# qbt Known limitations; a coexisting utun100 makes the Mullvad daemon flap).
-#
 # Managed by launchd: com.nicholassmith.mullvad-tailscale-dns (see ../install.sh).
 # To remove: launchctl bootout gui/$(id -u)/com.nicholassmith.mullvad-tailscale-dns
 #            rm ~/Library/LaunchAgents/com.nicholassmith.mullvad-tailscale-dns.plist
@@ -35,36 +30,12 @@ set_accept_dns() {
   fi
 }
 
-# The Mullvad app and the qbt WireGuard tunnel are mutually exclusive (see
-# README): a live — or zombie — utun100 alongside a connected Mullvad app makes
-# Mullvad's own tunnel flap (MTU probes black-hole, monitor reconnects every
-# few minutes), and qbt-nested-in-Mullvad forwards nothing anyway. Enforce it:
-# tunnel torn down while Mullvad is up, restored when Mullvad goes away.
-# Both launchctl invocations are NOPASSWD sudoers entries (qbt-tunnel.sudoers);
-# each is idempotent — the error from booting out an unloaded job (or
-# bootstrapping a loaded one) is suppressed, and the log line fires only on a
-# real transition.
-QBT_LABEL="com.nicholassmith.qbt-wireguard"
-QBT_PLIST="/Library/LaunchDaemons/$QBT_LABEL.plist"
-set_qbt_tunnel() {
-  want="$1"   # up | down
-  [ -f "$QBT_PLIST" ] || return 0   # qbt tunnel not installed on this machine
-  if [ "$want" = "down" ]; then
-    /usr/bin/sudo -n /bin/launchctl bootout "system/$QBT_LABEL" 2>/dev/null \
-      && /usr/bin/logger -t "$LOG_TAG" "Mullvad up -> qbt tunnel booted out"
-  else
-    /usr/bin/sudo -n /bin/launchctl bootstrap system "$QBT_PLIST" 2>/dev/null \
-      && /usr/bin/logger -t "$LOG_TAG" "Mullvad down -> qbt tunnel bootstrapped"
-  fi
-}
-
-# Map a top-level Mullvad status line to the desired Tailscale DNS state and
-# qbt tunnel state.
+# Map a top-level Mullvad status line to the desired Tailscale DNS state.
 # (Detail lines are indented, so only column-0 state words match these patterns.)
 apply() {
   case "$1" in
-    Connected*|Connecting*|Blocked*) set_accept_dns false; set_qbt_tunnel down ;;
-    Disconnected*|Disconnecting*)    set_accept_dns true;  set_qbt_tunnel up   ;;
+    Connected*|Connecting*|Blocked*) set_accept_dns false ;;
+    Disconnected*|Disconnecting*)    set_accept_dns true  ;;
   esac
 }
 
