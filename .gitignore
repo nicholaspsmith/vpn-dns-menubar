@@ -3,6 +3,3 @@
 build/
 *.app
 .swiftpm/
-qbt-tunnel/*.conf
-qbt-tunnel/*.key
-qbt-tunnel/device.json
