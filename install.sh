@@ -1,8 +1,7 @@
 #!/usr/bin/env bash
 # Install vpn-dns-menubar:
 #   1) build the standalone "VPN & DNS.app" and symlink it into ~/Applications
-#   2) load the launchd DNS-sync agent (toggles Tailscale accept-dns with Mullvad
-#      and enforces Mullvad/qbt-tunnel mutual exclusivity when that's installed)
+#   2) load the launchd DNS-sync agent (toggles Tailscale accept-dns with Mullvad)
 # Optional: `./install.sh --swiftbar` also wires the retired SwiftBar plugin
 # fallback (see README).
 #
@@ -30,7 +29,7 @@ mkdir -p "$LA"
 sed -e "s|__SCRIPT__|$WATCH|g" "$SRC_DIR/dns-watcher/$LABEL.plist" > "$PLIST"
 launchctl bootout "gui/$(id -u)/$LABEL" 2>/dev/null || true
 launchctl bootstrap "gui/$(id -u)" "$PLIST" 2>/dev/null || launchctl load -w "$PLIST"
-echo "Loaded launchd agent $LABEL (accept-dns + qbt-tunnel exclusivity follow Mullvad state)."
+echo "Loaded launchd agent $LABEL (accept-dns follows Mullvad state)."
 
 # --- SwiftBar plugin (retired fallback; opt-in) ----------------------------
 if [[ "${1:-}" == "--swiftbar" ]]; then
@@ -47,8 +46,3 @@ echo
 echo "Done. Use the menu's 'Start at Login' toggle, and hide the native"
 echo "Mullvad/Tailscale icons (e.g. with Ice) so this is the only one visible."
 echo "See README.md for details and uninstall steps."
-
-echo
-echo "Optional: dedicated always-on Mullvad tunnel for qBittorrent:"
-echo "  brew install wireguard-go wireguard-tools jq   # once"
-echo "  sudo $SRC_DIR/qbt-tunnel/install-qbt-tunnel.sh"
