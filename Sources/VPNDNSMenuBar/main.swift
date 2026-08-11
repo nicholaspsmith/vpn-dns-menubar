@@ -166,6 +166,7 @@ final class App: NSObject, NSApplicationDelegate {
     private var mullvad = MullvadStatus(state: .off, relay: nil, location: nil)
     private var backend = "Unknown"
     private var corpDNS = false
+    private var deviceName: String?       // main-thread; nil until first fetch, or when logged out
     private var pollTick = 0              // main-thread; paces the device-name refresh
     private var splitTunnel = SplitTunnelStatus(enabled: false, apps: [])
     private let store: LatencyStore
@@ -242,7 +243,11 @@ final class App: NSObject, NSApplicationDelegate {
         if pollInFlight { return }
         pollInFlight = true
         let tsRunning = tailscaleAppRunning()   // on main; guards the GUI-launching calls below
+        let tick = pollTick
         pollTick += 1
+        // The device name only changes on login/logout: fetch once at startup,
+        // then every 12th tick (~60s at the 5s poll interval).
+        let needDevice = deviceName == nil || tick % 12 == 0
         pollQueue.async { [weak self] in
             guard let self = self else { return }
             let mv = parseMullvadStatus(Shell.run(MULLVAD, ["status"]) ?? "")
@@ -251,6 +256,9 @@ final class App: NSObject, NSApplicationDelegate {
             let be = tsRunning ? parseTailscaleBackend(Shell.run(TS, ["status", "--json"]) ?? "") : "Not running"
             let dns = tsRunning ? parseCorpDNS(Shell.run(TS, ["debug", "prefs"]) ?? "") : false
             let st = parseSplitTunnel(Shell.run(MULLVAD, ["split-tunnel", "get"]) ?? "")
+            let device: String? = needDevice
+                ? parseMullvadDeviceName(Shell.run(MULLVAD, ["account", "get"], timeout: 5) ?? "")
+                : nil
             DispatchQueue.main.async {
                 self.pollInFlight = false
                 let previous = self.mullvad.state
@@ -258,6 +266,9 @@ final class App: NSObject, NSApplicationDelegate {
                 self.backend = be
                 self.corpDNS = dns
                 self.splitTunnel = st
+                // Only overwrite on a tick that actually fetched, so a skipped
+                // tick never blanks a good name.
+                if needDevice { self.deviceName = device }
                 self.mullvadStateLock.lock()
                 self.mullvadIsOff = (mv.state == .off)
                 self.mullvadStateLock.unlock()
@@ -282,7 +293,7 @@ final class App: NSObject, NSApplicationDelegate {
     // pickers), then everything Tailscale (status, toggle, accept-dns — a
     // Tailscale pref), then app items.
     private func build(_ menu: NSMenu) {
-        addGroupHeader(menu, "Mullvad")
+        addGroupHeader(menu, deviceName.map { "Mullvad - \($0)" } ?? "Mullvad")
 
         let mv = NSMenuItem(title: mullvadRowLabel(mullvad), action: #selector(toggleMullvad), keyEquivalent: "")
         mv.target = self
