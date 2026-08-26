@@ -1,5 +1,7 @@
 # vpn-dns-menubar
 
+![The VPN & DNS menu](screenshots/menu.png)
+
 One macOS menu-bar icon that consolidates **Mullvad VPN** and **Tailscale** into a
 single status dot, with a sectioned dropdown covering both apps — and a small
 launchd watcher that keeps DNS working when Mullvad and Tailscale run at once.
@@ -263,3 +265,36 @@ tailscale set --accept-dns=true   # restore default
 ## License
 
 [MIT](LICENSE)
+
+## The menu-bar suite
+
+Part of a suite of macOS menu-bar apps that share one framework, one
+build-and-sign script, and one installer. They are designed to sit in the
+same bar together: consistent menus, a common **Icon** picker for shape and
+colour, and cooperative hiding so no icon strands another.
+
+| App | What it does |
+|---|---|
+| [Claude Usage](https://github.com/nicholaspsmith/claude-usage-menubar) | Claude Code plan limits, resets, and live agent sessions |
+| [Apollo Monitor](https://github.com/nicholaspsmith/apollo-monitor-menubar) | Universal Audio Apollo monitor level, plus a UA process watchdog |
+| [Battery Time](https://github.com/nicholaspsmith/battery-time-menubar) | Time remaining, power mode, and 24h usage |
+| **VPN & DNS** | One dot for Mullvad + Tailscale state, with a DNS watcher |
+| [Process Monitor](https://github.com/nicholaspsmith/MacOS_Process_Monitor) | Process-count sparkline against the per-UID limit |
+| [KeyLight](https://github.com/nicholaspsmith/keylight-menubar) | Ctrl+brightness keys remapped to keyboard backlight |
+| [MacRecorder](https://github.com/nicholaspsmith/MacRecorder) | Screen recording with system audio |
+| [Media Tracking Killer](https://github.com/nicholaspsmith/media-tracking-killer-menubar) | Kills Apple's media tracking daemons |
+| [Download Recycler](https://github.com/nicholaspsmith/download-recycler-menubar) | Sweeps stale files out of ~/Downloads |
+| [Curtain](https://github.com/nicholaspsmith/menubar-curtain) | Hides a block of status icons by width, so it cannot strand one |
+
+| Framework | |
+|---|---|
+| [StatusItemKit](https://github.com/nicholaspsmith/StatusItemKit) | Status-item lifecycle, polling, menus, meter icons, the shared Icon picker |
+| [HotkeyKit](https://github.com/nicholaspsmith/HotkeyKit) | CGEventTap engine for intercepting and remapping global keys |
+
+Install the whole suite on a fresh Mac with
+[macOS Dev Environment Setup](https://github.com/nicholaspsmith/MacOS-Dev-Environment-Setup):
+
+```bash
+git clone https://github.com/nicholaspsmith/MacOS-Dev-Environment-Setup.git
+cd MacOS-Dev-Environment-Setup && ./bootstrap.sh --all
+```
