@@ -4,6 +4,11 @@ import VPNDNSCore
 
 private let MULLVAD = "/usr/local/bin/mullvad"
 private let TS = "/Applications/Tailscale.app/Contents/MacOS/Tailscale"
+// The Tailscale CLI requires TERM (or TERM_PROGRAM) in its environment: without
+// one it takes a launch-the-GUI path that fails with "The Tailscale GUI failed
+// to start" printed to STDOUT with exit 0 — which parses as backend "Unknown".
+// A login-launched app inherits neither var, so every TS call must inject one.
+private let TS_ENV = ["TERM": "dumb"]
 
 private func nsColor(_ c: DotColor) -> NSColor {
     switch c {
@@ -259,8 +264,8 @@ final class App: NSObject, NSApplicationDelegate {
             let mv = parseMullvadStatus(Shell.run(MULLVAD, ["status"]) ?? "")
             // Only query Tailscale when its app is already up — invoking the binary
             // while it's quit would relaunch the GUI. When down, report not running.
-            let be = tsRunning ? parseTailscaleBackend(Shell.run(TS, ["status", "--json"]) ?? "") : "Not running"
-            let dns = tsRunning ? parseCorpDNS(Shell.run(TS, ["debug", "prefs"]) ?? "") : false
+            let be = tsRunning ? parseTailscaleBackend(Shell.run(TS, ["status", "--json"], env: TS_ENV) ?? "") : "Not running"
+            let dns = tsRunning ? parseCorpDNS(Shell.run(TS, ["debug", "prefs"], env: TS_ENV) ?? "") : false
             let st = parseSplitTunnel(Shell.run(MULLVAD, ["split-tunnel", "get"]) ?? "")
             let device: String? = needDevice
                 ? parseMullvadDeviceName(Shell.run(MULLVAD, ["account", "get"], timeout: 5) ?? "")
@@ -391,8 +396,8 @@ final class App: NSObject, NSApplicationDelegate {
         let action = tailscaleToggle(backend)
         DispatchQueue.global().async { [weak self] in
             switch action {
-            case .up: _ = Shell.run(TS, ["up"])
-            case .down: _ = Shell.run(TS, ["down"])
+            case .up: _ = Shell.run(TS, ["up"], env: TS_ENV)
+            case .down: _ = Shell.run(TS, ["down"], env: TS_ENV)
             }
             DispatchQueue.main.async { self?.poll() }
         }
@@ -402,7 +407,7 @@ final class App: NSObject, NSApplicationDelegate {
     @objc private func toggleAcceptDNS() {
         let target = corpDNS ? "false" : "true"
         DispatchQueue.global().async { [weak self] in
-            _ = Shell.run(TS, ["set", "--accept-dns=\(target)"])
+            _ = Shell.run(TS, ["set", "--accept-dns=\(target)"], env: TS_ENV)
             DispatchQueue.main.async { self?.poll() }
         }
     }
