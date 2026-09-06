@@ -2,6 +2,8 @@
 
 <p align="center"><img src="docs/mascot.png" width="160" alt="VPN & DNS mascot, from the Menubarn widget library"></p>
 
+<p align="center">Part of the <a href="https://widgets.nicksmith.software">Menubarn</a> widget library.</p>
+
 ![The VPN & DNS menu](screenshots/menu.png)
 
 One macOS menu-bar icon that consolidates **Mullvad VPN** and **Tailscale** into a
