@@ -12,7 +12,7 @@ The primary deliverable is the standalone **"VPN & DNS.app"** (see
 "Standalone Swift app" below). The original
 [SwiftBar](https://github.com/swiftbar/SwiftBar) plugin remains in the repo as a
 retired fallback. Hide the two native Mullvad/Tailscale menu-bar icons (e.g. with
-[Ice](https://github.com/jordanbaird/Ice)) and let this be the only one.
+[Curtain](https://github.com/nicholaspsmith/menubar-curtain)) and let this be the only one.
 
 ## What you see
 
@@ -87,7 +87,7 @@ scripts/refresh-candidates.sh
 - Xcode Command Line Tools (Swift 5.9+) to build the app — `xcode-select --install`
 - [Mullvad VPN](https://mullvad.net/) (CLI at `/usr/local/bin/mullvad`) and
   [Tailscale](https://tailscale.com/) (the Mac app, not the standalone CLI)
-- Optional: [Ice](https://github.com/jordanbaird/Ice) to hide the native icons;
+- Optional: [Curtain](https://github.com/nicholaspsmith/menubar-curtain) to hide the native icons;
   [SwiftBar](https://github.com/swiftbar/SwiftBar) (`brew install --cask swiftbar`)
   only if you wire the retired plugin fallback
 
@@ -267,6 +267,10 @@ tailscale set --accept-dns=true   # restore default
 ## License
 
 [MIT](LICENSE)
+
+## Why not a SwiftBar plugin?
+
+This is a standalone `.app` built on [StatusItemKit](https://github.com/nicholaspsmith/StatusItemKit), not a script under a plugin host: no SwiftBar to install, a real AppKit menu instead of rendered stdout, event-driven updates instead of a re-run timer, and an icon that keeps its place in the bar. The dot follows `mullvad status listen` the moment the tunnel changes instead of polling, and the app needs no Accessibility or Automation grant, which the retired plugin did. The full comparison is in [StatusItemKit's README](https://github.com/nicholaspsmith/StatusItemKit#why-not-swiftbar).
 
 ## The menu-bar suite
 
