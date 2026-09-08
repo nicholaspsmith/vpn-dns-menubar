@@ -291,9 +291,38 @@ final class App: NSObject, NSApplicationDelegate {
                     self.firstPollCommitted = true
                     self.probe?.probeIfNeeded()
                 }
-                self.controller.setIcon(MeterIcon.dot(color: nsColor(dotColor(mullvad: mv.state, tailscaleRunning: be == "Running"))))
+                self.lastIconColor = nsColor(dotColor(mullvad: mv.state, tailscaleRunning: be == "Running"))
+                self.applyIcon()
             }
         }
+    }
+
+    // MARK: - Icon style
+
+    /// The dot, or the chameleon that changes to the same colours. Persisted.
+    enum IconStyle: String, CaseIterable {
+        case chameleon, dot
+        var title: String { self == .dot ? "Dot" : "Chameleon" }
+        private static let key = "iconStyle"
+        static var current: IconStyle {
+            get { UserDefaults.standard.string(forKey: key).flatMap(IconStyle.init) ?? .chameleon }
+            set { UserDefaults.standard.set(newValue.rawValue, forKey: key) }
+        }
+    }
+
+    private var lastIconColor: NSColor = NSColor(red: 0.60, green: 0.60, blue: 0.62, alpha: 1)
+
+    private func applyIcon() {
+        switch IconStyle.current {
+        case .chameleon: controller.setIcon(CharacterIcon.chameleon(color: lastIconColor))
+        case .dot: controller.setIcon(MeterIcon.dot(color: lastIconColor))
+        }
+    }
+
+    @objc private func setIconStyle(_ sender: NSMenuItem) {
+        guard let raw = sender.representedObject as? String, let style = IconStyle(rawValue: raw) else { return }
+        IconStyle.current = style
+        applyIcon()
     }
 
     private func addGroupHeader(_ menu: NSMenu, _ title: String) {
@@ -334,6 +363,18 @@ final class App: NSObject, NSApplicationDelegate {
         menu.addItem(tsToggle)
 
         menu.addItem(NSMenuItem.separator())
+
+        let iconHeader = NSMenuItem(title: "Icon", action: nil, keyEquivalent: "")
+        let iconSub = NSMenu()
+        for style in IconStyle.allCases {
+            let item = NSMenuItem(title: style.title, action: #selector(setIconStyle(_:)), keyEquivalent: "")
+            item.target = self
+            item.representedObject = style.rawValue
+            item.state = style == IconStyle.current ? .on : .off
+            iconSub.addItem(item)
+        }
+        iconHeader.submenu = iconSub
+        menu.addItem(iconHeader)
 
         let login = NSMenuItem(title: "Start at Login", action: #selector(toggleLogin), keyEquivalent: "")
         login.target = self
