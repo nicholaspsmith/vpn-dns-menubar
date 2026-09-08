@@ -15,6 +15,11 @@ public func dotColor(for state: MullvadState) -> DotColor {
 /// blue shows when Mullvad is off but Tailscale is running (the active path);
 /// grey when both are off. Mullvad-connected makes the tailnet unreachable, so the
 /// two are effectively mutually exclusive — blue simply replaces grey.
+/// How many tails the chameleon icon grows: one per live connection.
+public func tailCount(mullvad state: MullvadState, tailscaleRunning: Bool) -> Int {
+    (state == .connected ? 1 : 0) + (tailscaleRunning ? 1 : 0)
+}
+
 public func dotColor(mullvad state: MullvadState, tailscaleRunning: Bool) -> DotColor {
     if state == .off && tailscaleRunning { return .blue }
     return dotColor(for: state)
