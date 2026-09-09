@@ -7,7 +7,7 @@
 ![The VPN & DNS menu](screenshots/menu.png)
 
 One macOS menu-bar icon that consolidates **Mullvad VPN** and **Tailscale** into a
-single status dot, with a sectioned dropdown covering both apps — and a small
+single chameleon, with a sectioned dropdown covering both apps — and a small
 launchd watcher that keeps DNS working when Mullvad and Tailscale run at once.
 
 The primary deliverable is the standalone **"VPN & DNS.app"** (see
@@ -18,14 +18,19 @@ retired fallback. Hide the two native Mullvad/Tailscale menu-bar icons (e.g. wit
 
 ## What you see
 
-The menu bar shows **one icon**: a single status dot that tracks Mullvad.
+The menu bar shows **one icon**: a chameleon.
 
-| State | Dot |
-|-------|-----|
-| Connected | ![connected](screenshots/menubar-connected.png) |
-| Connecting / Disconnecting | ![connecting](screenshots/menubar-connecting.png) |
-| Blocked | ![blocked](screenshots/menubar-blocked.png) |
-| Off / disconnected | ![off](screenshots/menubar-off.png) |
+![The menu-bar icon](docs/menubar-icon.png)
+
+- Its **colour** tracks Mullvad: green connected, orange connecting or
+  disconnecting, red blocked, grey off — and **blue** when Mullvad is off but
+  Tailscale is running, since Tailscale is then the active path.
+- Its **tongue** flicks out while Mullvad is connected.
+- Its **tail** hangs down while Tailscale is running.
+
+So: green with a tongue is Mullvad alone, blue with a tail is Tailscale alone,
+green with both is both, and a plain red one is blocked with Tailscale off.
+Prefer the original dot? **menu ▸ Icon ▸ Dot**.
 
 Clicking it opens a dropdown, grouped into two bold section headers:
 
@@ -272,7 +277,7 @@ tailscale set --accept-dns=true   # restore default
 
 ## Why not a SwiftBar plugin?
 
-This is a standalone `.app` built on [StatusItemKit](https://github.com/nicholaspsmith/StatusItemKit), not a script under a plugin host: no SwiftBar to install, a real AppKit menu instead of rendered stdout, event-driven updates instead of a re-run timer, and an icon that keeps its place in the bar. The dot follows `mullvad status listen` the moment the tunnel changes instead of polling, and the app needs no Accessibility or Automation grant, which the retired plugin did. The full comparison is in [StatusItemKit's README](https://github.com/nicholaspsmith/StatusItemKit#why-not-swiftbar).
+This is a standalone `.app` built on [StatusItemKit](https://github.com/nicholaspsmith/StatusItemKit), not a script under a plugin host: no SwiftBar to install, a real AppKit menu instead of rendered stdout, event-driven updates instead of a re-run timer, and an icon that keeps its place in the bar. The icon follows `mullvad status listen` the moment the tunnel changes instead of polling, and the app needs no Accessibility or Automation grant, which the retired plugin did. The full comparison is in [StatusItemKit's README](https://github.com/nicholaspsmith/StatusItemKit#why-not-swiftbar).
 
 ## The menu-bar suite
 
@@ -286,7 +291,7 @@ colour, and cooperative hiding so no icon strands another.
 | [Claude Usage](https://github.com/nicholaspsmith/claude-usage-menubar) | Claude Code plan limits, resets, and live agent sessions |
 | [Apollo Monitor](https://github.com/nicholaspsmith/apollo-monitor-menubar) | Universal Audio Apollo monitor level, plus a UA process watchdog |
 | [Battery Time](https://github.com/nicholaspsmith/battery-time-menubar) | Time remaining, power mode, and 24h usage |
-| **VPN & DNS** | One dot for Mullvad + Tailscale state, with a DNS watcher |
+| **VPN & DNS** | A chameleon for Mullvad + Tailscale state, with a DNS watcher |
 | [Process Monitor](https://github.com/nicholaspsmith/MacOS_Process_Monitor) | Process-count sparkline against the per-UID limit |
 | [KeyLight](https://github.com/nicholaspsmith/keylight-menubar) | Ctrl+brightness keys remapped to keyboard backlight |
 | [MacRecorder](https://github.com/nicholaspsmith/MacRecorder) | Screen recording with system audio |
