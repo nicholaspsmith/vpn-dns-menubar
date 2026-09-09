@@ -26,10 +26,11 @@ The menu bar shows **one icon**: a chameleon.
 It hangs onto a brown stick and is brown like the stick while nothing is
 connected.
 
-- **Tailscale running:** it grows dark spots (Tailscale's own icon is dots)
-  and its tail curls. Otherwise the tail is short and straight.
-- **Mullvad connected:** it turns yellow, puts on a yellow hard hat with a headlamp, and its tongue flicks out.
-- **Both:** yellow with spots, hard hat on, tongue out, tail curled.
+- **Tailscale running:** it turns green with dark spots (Tailscale's own icon
+  is dots) and its tail curls into a loop. Otherwise the tail is a long, open
+  curl.
+- **Mullvad connected:** it turns green, puts on a yellow hard hat with a headlamp, and its tongue flicks out.
+- **Both:** green with spots, hard hat on, tongue out, tail looped.
 - Mullvad's in-between states still show as the dot's colours: orange while
   connecting or disconnecting, red when blocked.
 
