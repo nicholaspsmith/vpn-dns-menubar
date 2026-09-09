@@ -292,7 +292,8 @@ final class App: NSObject, NSApplicationDelegate {
                     self.probe?.probeIfNeeded()
                 }
                 self.lastIconColor = nsColor(dotColor(mullvad: mv.state, tailscaleRunning: be == "Running"))
-                self.lastTails = tailCount(mullvad: mv.state, tailscaleRunning: be == "Running")
+                self.lastTail = be == "Running"
+                self.lastTongue = mv.state == .connected
                 self.applyIcon()
             }
         }
@@ -312,11 +313,12 @@ final class App: NSObject, NSApplicationDelegate {
     }
 
     private var lastIconColor: NSColor = NSColor(red: 0.60, green: 0.60, blue: 0.62, alpha: 1)
-    private var lastTails = 0
+    private var lastTail = false
+    private var lastTongue = false
 
     private func applyIcon() {
         switch IconStyle.current {
-        case .chameleon: controller.setIcon(CharacterIcon.chameleon(color: lastIconColor, tails: lastTails))
+        case .chameleon: controller.setIcon(CharacterIcon.chameleon(color: lastIconColor, tail: lastTail, tongue: lastTongue))
         case .dot: controller.setIcon(MeterIcon.dot(color: lastIconColor))
         }
     }
