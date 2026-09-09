@@ -23,14 +23,16 @@ The menu bar shows **one icon**: a chameleon.
 
 ![The menu-bar icon](docs/menubar-icon.png)
 
-- Its **colour** tracks Mullvad: green connected, orange connecting or
-  disconnecting, red blocked, grey off — and **blue** when Mullvad is off but
-  Tailscale is running, since Tailscale is then the active path.
-- Its **tongue** flicks out while Mullvad is connected.
-- Its **tail** hangs down while Tailscale is running.
+It hangs onto a brown stick and is brown like the stick while nothing is
+connected.
 
-So: green with a tongue is Mullvad alone, blue with a tail is Tailscale alone,
-green with both is both, and a plain red one is blocked with Tailscale off.
+- **Tailscale running:** it grows dark spots (Tailscale's own icon is dots)
+  and its tail curls. Otherwise the tail is short and straight.
+- **Mullvad connected:** it turns yellow and its tongue flicks out.
+- **Both:** yellow with spots, tongue out, tail curled.
+- Mullvad's in-between states still show as the dot's colours: orange while
+  connecting or disconnecting, red when blocked.
+
 Prefer the original dot? **menu ▸ Icon ▸ Dot**.
 
 Clicking it opens a dropdown, grouped into two bold section headers:
