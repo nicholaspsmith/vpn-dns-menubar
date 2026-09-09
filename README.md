@@ -28,8 +28,8 @@ connected.
 
 - **Tailscale running:** it grows dark spots (Tailscale's own icon is dots)
   and its tail curls. Otherwise the tail is short and straight.
-- **Mullvad connected:** it turns yellow and its tongue flicks out.
-- **Both:** yellow with spots, tongue out, tail curled.
+- **Mullvad connected:** it turns yellow, puts on a yellow hard hat with a headlamp, and its tongue flicks out.
+- **Both:** yellow with spots, hard hat on, tongue out, tail curled.
 - Mullvad's in-between states still show as the dot's colours: orange while
   connecting or disconnecting, red when blocked.
 
