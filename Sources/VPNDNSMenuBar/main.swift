@@ -294,6 +294,12 @@ final class App: NSObject, NSApplicationDelegate {
                 self.lastIconColor = nsColor(dotColor(mullvad: mv.state, tailscaleRunning: be == "Running"))
                 self.lastTail = be == "Running"
                 self.lastTongue = mv.state == .connected
+                // The chameleon colours itself by connection; only Mullvad's
+                // in-between states (connecting, blocked) borrow the dot's colour.
+                switch mv.state {
+                case .connecting, .disconnecting, .blocked: self.lastAlert = self.lastIconColor
+                default: self.lastAlert = nil
+                }
                 self.applyIcon()
             }
         }
@@ -315,10 +321,11 @@ final class App: NSObject, NSApplicationDelegate {
     private var lastIconColor: NSColor = NSColor(red: 0.60, green: 0.60, blue: 0.62, alpha: 1)
     private var lastTail = false
     private var lastTongue = false
+    private var lastAlert: NSColor? = nil
 
     private func applyIcon() {
         switch IconStyle.current {
-        case .chameleon: controller.setIcon(CharacterIcon.chameleon(color: lastIconColor, tail: lastTail, tongue: lastTongue))
+        case .chameleon: controller.setIcon(CharacterIcon.chameleon(tailscale: lastTail, mullvad: lastTongue, alert: lastAlert))
         case .dot: controller.setIcon(MeterIcon.dot(color: lastIconColor))
         }
     }
