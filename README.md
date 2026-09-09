@@ -171,8 +171,8 @@ tell application "System Events" to tell process "Mullvad VPN" to click menu bar
 ```
 
 This needs SwiftBar granted Accessibility + Automation. **Caveat:** a native menu
-anchors to its icon's on-screen position, so if Ice hides the icon off-screen the
-menu can pop off-screen. Tailscale therefore uses `open -a Tailscale` instead of its
+anchors to its icon's on-screen position, so if a menu-bar manager hides the
+icon off-screen the menu can pop off-screen. Tailscale therefore uses `open -a Tailscale` instead of its
 native menu; Mullvad still uses the native popover.
 
 ## The DNS watcher (separate but related — the original problem)
@@ -268,7 +268,7 @@ launchctl bootout "gui/$(id -u)/com.nicholassmith.mullvad-tailscale-dns"
 rm ~/Library/LaunchAgents/com.nicholassmith.mullvad-tailscale-dns.plist
 tailscale set --accept-dns=true   # restore default
 
-# then re-show the native icons (relaunch the apps or drag them out of Ice)
+# then re-show the native icons (relaunch the apps, or unhide them in Curtain)
 ```
 
 ## License
