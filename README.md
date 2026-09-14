@@ -44,6 +44,11 @@ Mullvad - Fair Sheep                      ← bold section header, names this
   Split Tunnel: On                       ▸ toggle + excluded-app list
   Fastest US (No-ID)                     ▸ top-5 cities, ✓ = current
   Fastest Non-US (No-ID · torrent-safe)  ▸
+  Fastest Canada (No-ID)                 ▸
+  Fastest Latin America (No-ID)          ▸
+  Fastest Europe (No-ID)                 ▸
+  Fastest Asia (No-ID)                   ▸
+  Fastest Lists                          ▸ tick/untick which of the above show
 ──────────────────────────────────────────
 Tailscale                                 ← bold section header
   ●  accept-dns (MagicDNS): ON            → click toggles accept-dns
@@ -65,13 +70,17 @@ the accept-dns row is green (ON) / grey (OFF), and clicking it toggles
 `tailscale set --accept-dns`. That toggle is a *temporary override* — the DNS
 watcher (below) re-asserts its mapping on the next Mullvad connect/disconnect.
 
-The two **fastest-city submenus** — "Fastest US (No-ID)" and "Fastest Non-US
-(No-ID · torrent-safe)" — list the top-5 cities from the candidate list ranked by
-latency. Clicking a city connects Mullvad to that city (setting the relay location
-then running `mullvad connect`); clicking the currently-active city disconnects
-(toggle behavior). A checkmark (✓) marks the city you're connected to, and a
-freshness footer at the bottom of each submenu shows when the latencies were last
-measured.
+The **fastest-city submenus** list the top-5 cities from the candidate list
+ranked by latency. "Fastest US" and "Fastest Non-US" are the two halves of the
+pool; "Canada", "Latin America" (Mexico, Colombia, Peru, Chile, Argentina),
+"Europe" (Albania, Serbia, Ukraine) and "Asia" (Thailand, Philippines) slice the
+non-US half by region — Israel is only in Non-US. Every list is No-ID: the pool
+never contains a city outside it. Clicking a city connects Mullvad to that city
+(setting the relay location then running `mullvad connect`); clicking the
+currently-active city disconnects (toggle behavior). A checkmark (✓) marks the
+city you're connected to, and a freshness footer at the bottom of each submenu
+shows when the latencies were last measured. **Fastest Lists ▸** ticks/unticks
+which submenus appear (all six by default; the choice persists).
 
 Latency is re-measured by direct ICMP pings (`/sbin/ping`) when the newest
 measurement is older than **12 hours** (checked every 15 minutes and on

@@ -22,12 +22,12 @@ final class FastCitiesMenuTests: XCTestCase {
     func testSectionsHeadersAndTopFiveTitles() {
         let s = LatencyStore(pool: menuPool())
         let m = fastCitiesMenu(store: s, currentRelay: nil, now: Date(timeIntervalSince1970: 0))
-        XCTAssertEqual(m.us.header, "Fastest US (No-ID)")
-        XCTAssertEqual(m.nonus.header, "Fastest Non-US (No-ID · torrent-safe)")
-        XCTAssertEqual(m.us.rows.map { $0.title },
+        XCTAssertEqual(m.sections[0].header, "Fastest US (No-ID)")
+        XCTAssertEqual(m.sections[1].header, "Fastest Non-US (No-ID · torrent-safe)")
+        XCTAssertEqual(m.sections[0].rows.map { $0.title },
                        ["Washington DC — 25 ms", "Secaucus, NJ — 28 ms", "Boston, MA — 35 ms",
                         "Seattle, WA — 73 ms"])
-        XCTAssertEqual(m.nonus.rows.map { $0.title },
+        XCTAssertEqual(m.sections[1].rows.map { $0.title },
                        ["Montreal — 37 ms", "Toronto — 43 ms", "Queretaro — 51 ms"])
     }
 
@@ -46,16 +46,16 @@ final class FastCitiesMenuTests: XCTestCase {
         )
         let s = LatencyStore(pool: pool)
         let m = fastCitiesMenu(store: s, currentRelay: nil, now: Date(timeIntervalSince1970: 0))
-        XCTAssertEqual(m.us.rows.map { $0.cityCode }, ["aaa", "bbb", "ccc", "ddd", "eee"])
-        XCTAssertTrue(m.nonus.rows.isEmpty)
+        XCTAssertEqual(m.sections[0].rows.map { $0.cityCode }, ["aaa", "bbb", "ccc", "ddd", "eee"])
+        XCTAssertEqual(m.sections.map { $0.list }, [.us])
     }
     func testCurrentCityMarked() {
         let s = LatencyStore(pool: menuPool())
         let m = fastCitiesMenu(store: s, currentRelay: "us-was-wg-002", now: Date(timeIntervalSince1970: 0))
-        XCTAssertTrue(m.us.rows[0].isCurrent)   // DC
-        XCTAssertFalse(m.us.rows[1].isCurrent)
-        XCTAssertEqual(m.us.rows[0].cc, "us")
-        XCTAssertEqual(m.us.rows[0].cityCode, "was")
+        XCTAssertTrue(m.sections[0].rows[0].isCurrent)   // DC
+        XCTAssertFalse(m.sections[0].rows[1].isCurrent)
+        XCTAssertEqual(m.sections[0].rows[0].cc, "us")
+        XCTAssertEqual(m.sections[0].rows[0].cityCode, "was")
     }
     func testFreshnessSeedVsMeasured() {
         XCTAssertEqual(freshnessText(nil, now: Date(timeIntervalSince1970: 5000)),

@@ -44,23 +44,28 @@ public struct MenuRow: Equatable {
 }
 
 public struct MenuSection: Equatable {
-    public let header: String
+    public let list: FastList
     public let rows: [MenuRow]
-    public init(header: String, rows: [MenuRow]) {
-        self.header = header
+    public var header: String { list.header }
+    public init(list: FastList, rows: [MenuRow]) {
+        self.list = list
         self.rows = rows
     }
 }
 
 public struct FastCitiesMenu: Equatable {
-    public let us: MenuSection
-    public let nonus: MenuSection
+    /// One section per `FastList`, in `FastList.allCases` order, empty ones dropped.
+    public let sections: [MenuSection]
     public let footer: String
-    public init(us: MenuSection, nonus: MenuSection, footer: String) {
-        self.us = us
-        self.nonus = nonus
+    public init(sections: [MenuSection], footer: String) {
+        self.sections = sections
         self.footer = footer
     }
+}
+
+/// The sections the user has not unticked in the "Fastest Lists" menu.
+public func visibleSections(_ sections: [MenuSection], hidden: Set<FastList>) -> [MenuSection] {
+    sections.filter { !hidden.contains($0.list) }
 }
 
 /// Human freshness line for the footer.
@@ -75,11 +80,12 @@ public func freshnessText(_ last: Date?, now: Date) -> String {
     return "measured \(ago) (direct)"
 }
 
-/// Build the two menu sections (top-N cities each) plus the freshness footer.
+/// Build one menu section per list (top-N cities each, empty lists dropped)
+/// plus the freshness footer.
 public func fastCitiesMenu(store: LatencyStore, currentRelay: String?, now: Date,
                            topN: Int = 5) -> FastCitiesMenu {
-    func section(_ region: Region, _ header: String) -> MenuSection {
-        let rows = store.topCities(region: region, n: topN).map { relay -> MenuRow in
+    func section(_ list: FastList) -> MenuSection {
+        let rows = store.topCities(list: list, n: topN).map { relay -> MenuRow in
             let ms = Int(store.ms(for: relay).rounded())
             return MenuRow(
                 title: "\(relay.city) — \(ms) ms",
@@ -88,11 +94,10 @@ public func fastCitiesMenu(store: LatencyStore, currentRelay: String?, now: Date
                 isCurrent: isCurrentCity(relay: currentRelay, cc: relay.cc, cityCode: relay.cityCode)
             )
         }
-        return MenuSection(header: header, rows: rows)
+        return MenuSection(list: list, rows: rows)
     }
     return FastCitiesMenu(
-        us: section(.us, "Fastest US (No-ID)"),
-        nonus: section(.nonus, "Fastest Non-US (No-ID · torrent-safe)"),
+        sections: FastList.allCases.map(section).filter { !$0.rows.isEmpty },
         footer: freshnessText(store.lastDirectMeasurement, now: now)
     )
 }
