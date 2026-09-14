@@ -354,8 +354,10 @@ final class App: NSObject, NSApplicationDelegate {
         menu.addItem(buildSplitTunnelItem())
 
         let model = fastCitiesMenu(store: store, currentRelay: mullvad.relay, now: Date())
-        if !model.us.rows.isEmpty { menu.addItem(fastCitiesSubmenuItem(model.us, footer: model.footer)) }
-        if !model.nonus.rows.isEmpty { menu.addItem(fastCitiesSubmenuItem(model.nonus, footer: model.footer)) }
+        for section in visibleSections(model.sections, hidden: HiddenFastLists.current) {
+            menu.addItem(fastCitiesSubmenuItem(section, footer: model.footer))
+        }
+        menu.addItem(buildFastListsItem())
 
         menu.addItem(NSMenuItem.separator())
         addGroupHeader(menu, "Tailscale")
@@ -393,6 +395,40 @@ final class App: NSObject, NSApplicationDelegate {
         menu.addItem(login)
         menu.addItem(NSMenuItem.separator())
         menu.addItem(NSMenuItem(title: "Quit", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
+    }
+
+    // MARK: - Fastest lists show/hide
+
+    /// Which "Fastest …" submenus the user has unticked. Persisted.
+    enum HiddenFastLists {
+        private static let key = "hiddenFastLists"
+        static var current: Set<FastList> {
+            get { Set((UserDefaults.standard.stringArray(forKey: key) ?? []).compactMap(FastList.init)) }
+            set { UserDefaults.standard.set(newValue.map { $0.rawValue }.sorted(), forKey: key) }
+        }
+    }
+
+    // "Fastest Lists ▸" — one checkable row per list; ticked = shown.
+    private func buildFastListsItem() -> NSMenuItem {
+        let root = NSMenuItem(title: "Fastest Lists", action: nil, keyEquivalent: "")
+        let sub = NSMenu()
+        let hidden = HiddenFastLists.current
+        for list in FastList.allCases {
+            let item = NSMenuItem(title: list.shortName, action: #selector(toggleFastList(_:)), keyEquivalent: "")
+            item.target = self
+            item.representedObject = list.rawValue
+            item.state = hidden.contains(list) ? .off : .on
+            sub.addItem(item)
+        }
+        root.submenu = sub
+        return root
+    }
+
+    @objc private func toggleFastList(_ sender: NSMenuItem) {
+        guard let raw = sender.representedObject as? String, let list = FastList(rawValue: raw) else { return }
+        var hidden = HiddenFastLists.current
+        if hidden.contains(list) { hidden.remove(list) } else { hidden.insert(list) }
+        HiddenFastLists.current = hidden
     }
 
     // One top-level item per fastest-cities section; city rows + freshness

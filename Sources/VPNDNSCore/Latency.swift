@@ -15,7 +15,47 @@ public func parsePingMinRTT(_ output: String) -> Double? {
     return nil
 }
 
-public enum Region: String, Codable { case us, nonus }
+/// One "Fastest …" submenu. `us`/`nonus` are the two pool halves; the rest
+/// slice the non-US half by country (see `regionalList(forCC:)`). Order here is
+/// menu order.
+public enum FastList: String, CaseIterable, Codable {
+    case us, nonus, canada, latinAmerica, europe, asia
+
+    public var header: String {
+        switch self {
+        case .us:           return "Fastest US (No-ID)"
+        case .nonus:        return "Fastest Non-US (No-ID · torrent-safe)"
+        case .canada:       return "Fastest Canada (No-ID)"
+        case .latinAmerica: return "Fastest Latin America (No-ID)"
+        case .europe:       return "Fastest Europe (No-ID)"
+        case .asia:         return "Fastest Asia (No-ID)"
+        }
+    }
+
+    /// Short name for the show/hide menu.
+    public var shortName: String {
+        switch self {
+        case .us:           return "US"
+        case .nonus:        return "Non-US"
+        case .canada:       return "Canada"
+        case .latinAmerica: return "Latin America"
+        case .europe:       return "Europe"
+        case .asia:         return "Asia"
+        }
+    }
+
+    /// The regional list a non-US country belongs to; nil for countries that
+    /// only appear in Fastest Non-US (Israel).
+    public static func regionalList(forCC cc: String) -> FastList? {
+        switch cc {
+        case "ca":                         return .canada
+        case "mx", "co", "pe", "cl", "ar": return .latinAmerica
+        case "al", "rs", "ua":             return .europe
+        case "th", "ph":                   return .asia
+        default:                           return nil
+        }
+    }
+}
 
 /// A latency measurement for one city. `direct` is true when measured with the
 /// Mullvad tunnel down (the only trustworthy condition).
@@ -67,9 +107,17 @@ public final class LatencyStore {
         measured.values.filter { $0.direct }.map { $0.measuredAt }.max()
     }
 
-    public func topCities(region: Region, n: Int) -> [CandidateRelay] {
-        let list = (region == .us) ? pool.us : pool.nonus
-        let sorted = list.sorted { ms(for: $0) < ms(for: $1) }
+    /// Every candidate in `list`, unranked.
+    public func candidates(for list: FastList) -> [CandidateRelay] {
+        switch list {
+        case .us:    return pool.us
+        case .nonus: return pool.nonus
+        default:     return pool.nonus.filter { FastList.regionalList(forCC: $0.cc) == list }
+        }
+    }
+
+    public func topCities(list: FastList, n: Int) -> [CandidateRelay] {
+        let sorted = candidates(for: list).sorted { ms(for: $0) < ms(for: $1) }
         return Array(sorted.prefix(n))
     }
 

@@ -19,7 +19,7 @@ private func pool() -> CandidatePool {
 final class LatencyStoreTests: XCTestCase {
     func testTopCitiesUsesSeedsByDefault() {
         let s = LatencyStore(pool: pool())
-        let top = s.topCities(region: .us, n: 3).map { $0.cityCode }
+        let top = s.topCities(list: .us, n: 3).map { $0.cityCode }
         XCTAssertEqual(top, ["was", "uyk", "bos"])
     }
     func testMeasurementOverridesSeedAndReranks() {
@@ -30,7 +30,7 @@ final class LatencyStoreTests: XCTestCase {
             CityLatency(cityCode: "sea", ms: 10, measuredAt: t, direct: true),
             CityLatency(cityCode: "was", ms: 200, measuredAt: t, direct: true),
         ])
-        let top = s.topCities(region: .us, n: 3).map { $0.cityCode }
+        let top = s.topCities(list: .us, n: 3).map { $0.cityCode }
         XCTAssertEqual(top, ["sea", "uyk", "bos"])
         XCTAssertEqual(s.ms(for: pool().us[0]), 200) // DC now 200
     }
@@ -38,7 +38,7 @@ final class LatencyStoreTests: XCTestCase {
         let s = LatencyStore(pool: pool())
         let t = Date(timeIntervalSince1970: 1000)
         s.recordAll([CityLatency(cityCode: "was", ms: 9999, measuredAt: t, direct: true)])
-        XCTAssertEqual(s.topCities(region: .us, n: 1).map { $0.cityCode }, ["uyk"])
+        XCTAssertEqual(s.topCities(list: .us, n: 1).map { $0.cityCode }, ["uyk"])
     }
     func testLastDirectMeasurement() {
         let s = LatencyStore(pool: pool())
