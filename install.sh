@@ -17,6 +17,17 @@ SRC_DIR="$(cd "$(dirname "$0")" && pwd)"
 mkdir -p "$HOME/Applications"
 ln -sfn "$SRC_DIR/build/VPN & DNS.app" "$HOME/Applications/VPN & DNS.app"
 echo "Linked app -> ~/Applications/VPN & DNS.app (SMAppService requires it there)"
+
+# Register Start at Login. Without this the app only runs until the next reboot,
+# and a menu-bar app that quietly fails to come back is easy to miss for weeks.
+# SMAppService can only register the calling process's own bundle, so this has
+# to run the installed binary rather than call launchctl.
+if "$HOME/Applications/VPN & DNS.app/Contents/MacOS/VPNDNSMenuBar" --login on >/dev/null; then
+    echo "Start at Login: on"
+else
+    echo "Start at Login: could not register (turn it on from the menu)" >&2
+fi
+
 /usr/bin/open "$HOME/Applications/VPN & DNS.app"
 
 # --- launchd DNS-sync agent ------------------------------------------------
