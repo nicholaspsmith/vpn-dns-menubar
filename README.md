@@ -128,6 +128,19 @@ cd vpn-dns-menubar
 Then use the menu's **Start at Login** toggle and hide the native
 Mullvad/Tailscale icons. No Accessibility/Automation permission is needed.
 
+### Start at Login
+
+Toggle it from the menu, or from the shell:
+
+```sh
+"$HOME/Applications/VPN & DNS.app/Contents/MacOS/VPNDNSMenuBar" --login on       # or: off, status
+```
+
+`install.sh` already runs this for you. Start at Login is `SMAppService.mainApp`, which can only
+register the calling process's own bundle — so nothing outside the app can turn
+it on, and the command has to be the *installed* binary. A bare `--login`, or
+`--login status`, only reports the current state and changes nothing.
+
 ## Repo layout
 
 | Path | Role |
