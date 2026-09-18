@@ -365,18 +365,23 @@ final class App: NSObject, NSApplicationDelegate {
         menu.addItem(NSMenuItem.separator())
         addGroupHeader(menu, "Tailscale")
 
+        // Same shape as the Mullvad and MagicDNS rows: a dot, the state, and a
+        // click that toggles it. It used to open the Tailscale app instead,
+        // which left the three status rows behaving three different ways.
+        let ts = NSMenuItem(title: tailscaleRowLabel(backend), action: #selector(toggleTailscale), keyEquivalent: "")
+        ts.target = self
+        ts.image = dotImage(nsColor(tailscaleColor(backend)))
+        menu.addItem(ts)
+
         let dns = NSMenuItem(title: acceptDNSLabel(corpDNS), action: #selector(toggleAcceptDNS), keyEquivalent: "")
         dns.target = self
         dns.image = dotImage(nsColor(acceptDNSDotColor(corpDNS)))
         menu.addItem(dns)
 
-        let ts = NSMenuItem(title: tailscaleRowLabel(backend), action: #selector(openTailscale), keyEquivalent: "")
-        ts.target = self
-        menu.addItem(ts)
-
-        let tsToggle = NSMenuItem(title: tailscaleToggleLabel(backend), action: #selector(toggleTailscale), keyEquivalent: "")
-        tsToggle.target = self
-        menu.addItem(tsToggle)
+        // Opening the app was the old row's job, so it keeps a home of its own.
+        let openTS = NSMenuItem(title: "Open Tailscale App", action: #selector(openTailscale), keyEquivalent: "")
+        openTS.target = self
+        menu.addItem(openTS)
 
         menu.addItem(NSMenuItem.separator())
 
