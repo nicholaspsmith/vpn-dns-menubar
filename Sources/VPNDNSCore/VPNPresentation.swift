@@ -1,6 +1,6 @@
 import Foundation
 
-public enum DotColor: Equatable { case green, orange, red, grey, blue }
+public enum DotColor: Equatable { case green, orange, red, grey, blue, cyan }
 
 public func dotColor(for state: MullvadState) -> DotColor {
     switch state {
@@ -68,9 +68,11 @@ public func acceptDNSLabel(_ on: Bool) -> String {
     statusRowLabel(name: "MagicDNS", detail: "accept-dns", state: on ? "ON" : "OFF")
 }
 
-/// Status-dot color for the accept-dns menu row.
+/// Status-dot color for the accept-dns menu row — the same cyan the
+/// chameleon's eye takes, so the row and the glyph say the same thing. Green
+/// was indistinguishable from the body whenever either VPN was up.
 public func acceptDNSDotColor(_ on: Bool) -> DotColor {
-    on ? .green : .grey
+    on ? .cyan : .grey
 }
 
 public func tailscaleRowLabel(_ backend: String) -> String {

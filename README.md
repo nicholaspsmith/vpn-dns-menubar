@@ -29,7 +29,9 @@ is one thing the animal does, so the icon says all of them at once:
 - **Tailscale running:** the tail comes down off its back and wraps around the
   branch. Otherwise it stays rolled up behind it.
 - **Mullvad connected:** the tongue shoots out and wraps the branch ahead of it.
-- **accept-dns (MagicDNS) on:** its eye turns green.
+- **accept-dns (MagicDNS) on:** its eye turns cyan — the same cyan the row's
+  dot takes. Not green: the body is already green whenever a VPN is up, and a
+  green iris inside it was a state you had to hunt for.
 - **Either VPN up:** the body turns green; Mullvad's in-between states still
   borrow the dot's colours — orange while connecting or disconnecting, red when
   blocked.
@@ -52,7 +54,7 @@ Mullvad - Fair Sheep                      ← bold section header, names this
 ──────────────────────────────────────────
 Tailscale                                 ← bold section header
   ●  Connection · ON                      → click brings Tailscale up/down
-  ●  MagicDNS — accept-dns · ON           → click toggles accept-dns
+  ◍  MagicDNS — accept-dns · ON           → click toggles accept-dns (cyan dot)
   Open Tailscale App
 ──────────────────────────────────────────
 Start at Login
@@ -71,8 +73,9 @@ disconnecting · red blocked · grey off) and its in-between states say so rathe
 than being forced into ON/OFF; connecting goes to Mullvad's own persisted relay
 selection (whatever was last chosen via the fast-city submenus or the native
 app). Tailscale's dot is green running · orange starting or needs-login · grey
-otherwise, and its row brings the backend up or down. The MagicDNS row is green
-(ON) / grey (OFF) and toggles `tailscale set --accept-dns`. That toggle is a *temporary override* — the DNS
+otherwise, and its row brings the backend up or down. The MagicDNS row is cyan
+(ON) / grey (OFF) — matching the chameleon's eye — and toggles
+`tailscale set --accept-dns`. That toggle is a *temporary override* — the DNS
 watcher (below) re-asserts its mapping on the next Mullvad connect/disconnect.
 
 The **fastest-city submenus** list the top-5 cities from the candidate list
