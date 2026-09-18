@@ -66,7 +66,8 @@ final class VPNPresentationTests: XCTestCase {
     }
 
     func testAcceptDNSDotColor() {
-        XCTAssertEqual(acceptDNSDotColor(true), .green)
+        // Cyan, not green: the body is green whenever a VPN is up.
+        XCTAssertEqual(acceptDNSDotColor(true), .cyan)
         XCTAssertEqual(acceptDNSDotColor(false), .grey)
     }
 

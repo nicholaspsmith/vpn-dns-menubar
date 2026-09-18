@@ -17,6 +17,9 @@ private func nsColor(_ c: DotColor) -> NSColor {
     case .red: return NSColor(red: 1.0, green: 0.27, blue: 0.23, alpha: 1)       // #ff453a
     case .grey: return NSColor(red: 0.60, green: 0.60, blue: 0.62, alpha: 1)     // #98989d
     case .blue: return NSColor(red: 0.04, green: 0.52, blue: 1.0, alpha: 1)      // #0a84ff
+    // Shared with the chameleon's accept-dns eye, so the row and the glyph
+    // are visibly the same signal.
+    case .cyan: return CharacterIcon.dnsCyan                                     // #3dd4ed
     }
 }
 
