@@ -8,25 +8,59 @@ final class VPNPresentationTests: XCTestCase {
         XCTAssertEqual(dotColor(for: .blocked), .red)
         XCTAssertEqual(dotColor(for: .off), .grey)
     }
-    // Rows sit under "Mullvad"/"Tailscale" group headers, so labels carry no prefix.
+    // The three status rows share one shape: a dot, a name, whatever detail
+    // that row has, and the state as the last word. They sit under
+    // "Mullvad"/"Tailscale" group headers, so the name is the thing itself
+    // rather than the product.
+    func testStatusRowLabelShape() {
+        XCTAssertEqual(statusRowLabel(name: "Connection", detail: "us-bos-wg-001", state: "ON"),
+                       "Connection — us-bos-wg-001 · ON")
+        // No detail: the row is just the name and the state, never a dangling dash.
+        XCTAssertEqual(statusRowLabel(name: "MagicDNS", detail: nil, state: "OFF"), "MagicDNS · OFF")
+        XCTAssertEqual(statusRowLabel(name: "Connection", detail: "", state: "ON"), "Connection · ON")
+    }
+
     func testMullvadRowLabel() {
         XCTAssertEqual(
             mullvadRowLabel(MullvadStatus(state: .connected, relay: "us-bos-wg-001", location: "X")),
-            "Connected — us-bos-wg-001"
+            "Connection — us-bos-wg-001 · ON"
         )
+        // Off with a remembered location: the location is still worth showing,
+        // but the state is what the row ends on.
         XCTAssertEqual(
             mullvadRowLabel(MullvadStatus(state: .off, relay: nil, location: "United States")),
-            "Off — United States"
+            "Connection — United States · OFF"
         )
         XCTAssertEqual(
             mullvadRowLabel(MullvadStatus(state: .off, relay: nil, location: nil)),
-            "Off"
+            "Connection · OFF"
+        )
+        // In-between states say what they are rather than pretending to be binary.
+        XCTAssertEqual(
+            mullvadRowLabel(MullvadStatus(state: .connecting, relay: nil, location: "Sweden")),
+            "Connection — Sweden · CONNECTING"
+        )
+        XCTAssertEqual(
+            mullvadRowLabel(MullvadStatus(state: .blocked, relay: nil, location: nil)),
+            "Connection · BLOCKED"
         )
     }
+
+    func testTailscaleRowLabel() {
+        XCTAssertEqual(tailscaleRowLabel("Running"), "Connection · ON")
+        XCTAssertEqual(tailscaleRowLabel("Stopped"), "Connection · OFF")
+        // A backend state that is neither is the detail, so the row explains
+        // why it is off rather than just saying so.
+        XCTAssertEqual(tailscaleRowLabel("NeedsLogin"), "Connection — needs login · OFF")
+        XCTAssertEqual(tailscaleRowLabel("Starting"), "Connection — starting · OFF")
+    }
+
+    func testAcceptDNSLabel() {
+        XCTAssertEqual(acceptDNSLabel(true), "MagicDNS — accept-dns · ON")
+        XCTAssertEqual(acceptDNSLabel(false), "MagicDNS — accept-dns · OFF")
+    }
+
     func testOtherLabels() {
-        XCTAssertEqual(acceptDNSLabel(true), "accept-dns (MagicDNS): ON")
-        XCTAssertEqual(acceptDNSLabel(false), "accept-dns (MagicDNS): OFF")
-        XCTAssertEqual(tailscaleRowLabel("Running"), "Status: Running")
         XCTAssertEqual(tailscaleColor("Running"), .green)
         XCTAssertEqual(tailscaleColor("Stopped"), .grey)
     }
@@ -64,9 +98,5 @@ final class VPNPresentationTests: XCTestCase {
         XCTAssertEqual(tailscaleToggle("Stopped"), .up)
         XCTAssertEqual(tailscaleToggle("NeedsLogin"), .up)
         XCTAssertEqual(tailscaleToggle("Unknown"), .up)
-    }
-    func testTailscaleToggleLabel() {
-        XCTAssertEqual(tailscaleToggleLabel("Running"), "Disconnect Tailscale")
-        XCTAssertEqual(tailscaleToggleLabel("Stopped"), "Connect Tailscale")
     }
 }

@@ -30,20 +30,42 @@ private func word(_ state: MullvadState) -> String {
     }
 }
 
-/// Row labels sit under "Mullvad"/"Tailscale" group headers in the menu,
-/// so they carry no product-name prefix.
+/// One shape for every status row: a name, whatever detail that row has, and
+/// the state as the last word.
+///
+///     Connection — us-bos-wg-001 · ON
+///     MagicDNS — accept-dns · OFF
+///
+/// Each row also carries a coloured dot and toggles what it describes when
+/// clicked, so the three of them can be read and used the same way. Rows sit
+/// under "Mullvad"/"Tailscale" group headers, so the name is the thing itself
+/// rather than the product.
+public func statusRowLabel(name: String, detail: String?, state: String) -> String {
+    guard let detail, !detail.isEmpty else { return "\(name) · \(state)" }
+    return "\(name) — \(detail) · \(state)"
+}
+
+/// Mullvad's in-between states say what they are rather than being forced into
+/// ON/OFF: "connecting" and "blocked" are exactly the moments worth a glance.
+private func stateWord(_ state: MullvadState) -> String {
+    switch state {
+    case .connected: return "ON"
+    case .off: return "OFF"
+    case .connecting: return "CONNECTING"
+    case .disconnecting: return "DISCONNECTING"
+    case .blocked: return "BLOCKED"
+    }
+}
+
 public func mullvadRowLabel(_ s: MullvadStatus) -> String {
-    if s.state == .connected {
-        return "Connected — \(s.relay ?? "?")"
-    }
-    if let loc = s.location, !loc.isEmpty {
-        return "\(word(s.state)) — \(loc)"
-    }
-    return word(s.state)
+    // Connected: the relay is the useful detail. Otherwise the location, which
+    // is where it would connect back to.
+    let detail = s.state == .connected ? (s.relay ?? s.location) : s.location
+    return statusRowLabel(name: "Connection", detail: detail, state: stateWord(s.state))
 }
 
 public func acceptDNSLabel(_ on: Bool) -> String {
-    "accept-dns (MagicDNS): \(on ? "ON" : "OFF")"
+    statusRowLabel(name: "MagicDNS", detail: "accept-dns", state: on ? "ON" : "OFF")
 }
 
 /// Status-dot color for the accept-dns menu row.
@@ -51,7 +73,17 @@ public func acceptDNSDotColor(_ on: Bool) -> DotColor {
     on ? .green : .grey
 }
 
-public func tailscaleRowLabel(_ backend: String) -> String { "Status: \(backend)" }
+public func tailscaleRowLabel(_ backend: String) -> String {
+    // Anything that is neither Running nor Stopped is the detail: the row then
+    // explains why it is off instead of only saying that it is.
+    let detail: String?
+    switch backend {
+    case "Running", "Stopped", "": detail = nil
+    case "NeedsLogin": detail = "needs login"
+    default: detail = backend.lowercased()
+    }
+    return statusRowLabel(name: "Connection", detail: detail, state: backend == "Running" ? "ON" : "OFF")
+}
 
 public func tailscaleColor(_ backend: String) -> DotColor {
     switch backend {
@@ -78,6 +110,3 @@ public func tailscaleToggle(_ backend: String) -> TailscaleToggle {
     backend == "Running" ? .down : .up
 }
 
-public func tailscaleToggleLabel(_ backend: String) -> String {
-    backend == "Running" ? "Disconnect Tailscale" : "Connect Tailscale"
-}

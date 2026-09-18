@@ -40,7 +40,7 @@ Clicking it opens a dropdown, grouped into two bold section headers:
 
 ```
 Mullvad - Fair Sheep                      ← bold section header, names this
-  ●  Connected — Denver, CO                 machine's registered device
+  ●  Connection — Denver, CO · ON           machine's registered device
   Split Tunnel: On                       ▸ toggle + excluded-app list
   Fastest US (No-ID)                     ▸ top-5 cities, ✓ = current
   Fastest Non-US (No-ID · torrent-safe)  ▸
@@ -51,9 +51,9 @@ Mullvad - Fair Sheep                      ← bold section header, names this
   Fastest Lists                          ▸ tick/untick which of the above show
 ──────────────────────────────────────────
 Tailscale                                 ← bold section header
-  ●  accept-dns (MagicDNS): ON            → click toggles accept-dns
-  Status: Running                         → click opens the Tailscale app
-  Disconnect Tailscale
+  ●  Connection · ON                      → click brings Tailscale up/down
+  ●  MagicDNS — accept-dns · ON           → click toggles accept-dns
+  Open Tailscale App
 ──────────────────────────────────────────
 Start at Login
 ──────────────────────────────────────────
@@ -61,13 +61,18 @@ Quit
 ```
 
 Section headers are bold, full-contrast, non-clickable; informational rows render
-at full contrast too (never the faint disabled gray). **Status rows carry a colored
-dot**: the Mullvad row reuses the menu-bar mapping (green connected · orange
-connecting/disconnecting · red blocked · grey off), and clicking it toggles the
-connection — connect goes to Mullvad's own persisted relay selection (whatever
-was last chosen via the fast-city submenus or the native app);
-the accept-dns row is green (ON) / grey (OFF), and clicking it toggles
-`tailscale set --accept-dns`. That toggle is a *temporary override* — the DNS
+at full contrast too (never the faint disabled gray).
+
+**The three status rows are the same row three times**: a coloured dot, a name,
+whatever detail that row has, and the state as the last word — `Connection —
+Denver, CO · ON` — and clicking any of them toggles what it describes. Mullvad's
+dot reuses the menu-bar mapping (green connected · orange connecting or
+disconnecting · red blocked · grey off) and its in-between states say so rather
+than being forced into ON/OFF; connecting goes to Mullvad's own persisted relay
+selection (whatever was last chosen via the fast-city submenus or the native
+app). Tailscale's dot is green running · orange starting or needs-login · grey
+otherwise, and its row brings the backend up or down. The MagicDNS row is green
+(ON) / grey (OFF) and toggles `tailscale set --accept-dns`. That toggle is a *temporary override* — the DNS
 watcher (below) re-asserts its mapping on the next Mullvad connect/disconnect.
 
 The **fastest-city submenus** list the top-5 cities from the candidate list
