@@ -23,8 +23,8 @@ The menu bar shows **one icon**: a chameleon.
 
 ![The menu-bar icon](docs/menubar-icon.png)
 
-It sits on a branch, brown like the branch while nothing is connected. Each
-connection is one thing the animal does, so the icon says all of them at once:
+It sits on a branch in resting olive while nothing is connected. Each connection
+is one thing the animal does, so the icon says all of them at once:
 
 - **Tailscale running:** the tail comes down off its back and wraps around the
   branch. Otherwise it stays rolled up behind it.
