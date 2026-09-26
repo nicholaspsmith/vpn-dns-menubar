@@ -84,18 +84,21 @@ public struct CityLatency: Codable, Equatable {
 public final class LatencyStore {
     public let pool: CandidatePool
     private var measured: [String: CityLatency]
+    private var throughputs: [String: CityThroughput]
     private let fileURL: URL?
+    private let throughputURL: URL?
 
-    public init(pool: CandidatePool, fileURL: URL? = nil) {
+    public init(pool: CandidatePool, fileURL: URL? = nil, throughputURL: URL? = nil) {
         self.pool = pool
         self.fileURL = fileURL
-        if let url = fileURL,
-           let data = try? Data(contentsOf: url),
-           let saved = try? JSONDecoder().decode([String: CityLatency].self, from: data) {
-            self.measured = saved
-        } else {
-            self.measured = [:]
-        }
+        self.throughputURL = throughputURL
+        self.measured = Self.load(fileURL) ?? [:]
+        self.throughputs = Self.load(throughputURL) ?? [:]
+    }
+
+    private static func load<T: Decodable>(_ url: URL?) -> [String: T]? {
+        guard let url, let data = try? Data(contentsOf: url) else { return nil }
+        return try? JSONDecoder().decode([String: T].self, from: data)
     }
 
     /// Effective latency: measured value if present, otherwise the seed.
@@ -105,7 +108,22 @@ public final class LatencyStore {
 
     public func recordAll(_ measurements: [CityLatency]) {
         for m in measurements { measured[m.cityCode] = m }
-        persist()
+        Self.persist(measured, to: fileURL)
+    }
+
+    /// Latest throughput result for a city, if it has ever been tested.
+    public func throughput(for relay: CandidateRelay) -> CityThroughput? {
+        throughputs[relay.cityCode]
+    }
+
+    public func recordThroughput(_ measurements: [CityThroughput]) {
+        for m in measurements { throughputs[m.cityCode] = m }
+        Self.persist(throughputs, to: throughputURL)
+    }
+
+    /// Newest throughput timestamp across all cities, if any.
+    public var lastThroughputMeasurement: Date? {
+        throughputs.values.map { $0.measuredAt }.max()
     }
 
     /// Most recent direct-measurement timestamp across all cities, if any.
@@ -122,14 +140,25 @@ public final class LatencyStore {
         }
     }
 
-    public func topCities(list: FastList, n: Int) -> [CandidateRelay] {
-        let sorted = candidates(for: list).sorted { ms(for: $0) < ms(for: $1) }
-        return Array(sorted.prefix(n))
+    /// Top-N cities of `list`. Latency mode: ascending effective latency.
+    /// Throughput mode: descending download Mbps, with never-tested cities
+    /// after every tested one, in latency order.
+    public func topCities(list: FastList, n: Int, mode: RankMode = .latency) -> [CandidateRelay] {
+        let byLatency = candidates(for: list).sorted { ms(for: $0) < ms(for: $1) }
+        switch mode {
+        case .latency:
+            return Array(byLatency.prefix(n))
+        case .throughput:
+            let tested = byLatency.filter { throughput(for: $0) != nil }
+                .sorted { throughput(for: $0)!.downMbps > throughput(for: $1)!.downMbps }
+            let untested = byLatency.filter { throughput(for: $0) == nil }
+            return Array((tested + untested).prefix(n))
+        }
     }
 
-    private func persist() {
-        guard let url = fileURL else { return }
-        guard let data = try? JSONEncoder().encode(measured) else { return }
+    private static func persist<T: Encodable>(_ value: [String: T], to url: URL?) {
+        guard let url else { return }
+        guard let data = try? JSONEncoder().encode(value) else { return }
         try? FileManager.default.createDirectory(
             at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
         try? data.write(to: url)

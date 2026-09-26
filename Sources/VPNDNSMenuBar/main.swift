@@ -189,6 +189,7 @@ final class App: NSObject, NSApplicationDelegate {
     private var splitTunnel = SplitTunnelStatus(enabled: false, apps: [])
     private let store: LatencyStore
     private var probe: LatencyProbe!
+    private var throughput: ThroughputProbe!
     private let mullvadStateLock = NSLock()
     private var mullvadIsOff = false   // guarded by mullvadStateLock; read by probe off-main
     private let pollQueue = DispatchQueue(label: "vpndns.poll")
@@ -205,8 +206,10 @@ final class App: NSObject, NSApplicationDelegate {
         }
         let support = FileManager.default
             .urls(for: .applicationSupportDirectory, in: .userDomainMask).first?
-            .appendingPathComponent("VPNDNSMenuBar/latency.json")
-        self.store = LatencyStore(pool: pool, fileURL: support)
+            .appendingPathComponent("VPNDNSMenuBar")
+        self.store = LatencyStore(pool: pool,
+                                  fileURL: support?.appendingPathComponent("latency.json"),
+                                  throughputURL: support?.appendingPathComponent("throughput.json"))
         super.init()
     }
 
@@ -234,6 +237,18 @@ final class App: NSObject, NSApplicationDelegate {
             onUpdate: { }
         )
         probe.start(interval: 15 * 60)
+        throughput = ThroughputProbe(
+            store: store,
+            mullvad: MULLVAD,
+            isOff: { [weak self] in
+                guard let self = self else { return false }
+                self.mullvadStateLock.lock()
+                defer { self.mullvadStateLock.unlock() }
+                return self.mullvadIsOff
+            },
+            onUpdate: { [weak self] in self?.poll() }
+        )
+        throughput.start(interval: 15 * 60)
         // Crash backstop: a probe killed mid-run can leave /sbin/ping in the
         // split-tunnel exclusions; never let that linger across launches.
         DispatchQueue.global().async {
@@ -292,7 +307,8 @@ final class App: NSObject, NSApplicationDelegate {
                 self.mullvadStateLock.lock()
                 self.mullvadIsOff = (mv.state == .off)
                 self.mullvadStateLock.unlock()
-                if previous != .off && mv.state == .off { self.probe?.probeIfNeeded() }
+                let measuring = self.throughput?.isRunning ?? false
+                if previous != .off && mv.state == .off && !measuring { self.probe?.probeIfNeeded() }
                 // The evaluation in start() ran before any poll had committed real
                 // state (mullvadIsOff/splitTunnel still init defaults → skip), so
                 // re-evaluate once the first real state lands.
@@ -365,9 +381,10 @@ final class App: NSObject, NSApplicationDelegate {
 
         menu.addItem(buildSplitTunnelItem())
 
-        let model = fastCitiesMenu(store: store, currentRelay: mullvad.relay, now: Date())
+        let model = fastCitiesMenu(store: store, currentRelay: mullvad.relay, now: Date(),
+                                   mode: RankModeSetting.current)
         for section in visibleSections(model.sections, hidden: HiddenFastLists.current) {
-            menu.addItem(fastCitiesSubmenuItem(section, footer: model.footer))
+            menu.addItem(fastCitiesSubmenuItem(section, footers: [model.footer, model.throughputFooter]))
         }
         menu.addItem(buildFastListsItem())
 
@@ -426,10 +443,39 @@ final class App: NSObject, NSApplicationDelegate {
         }
     }
 
-    // "Fastest Lists ▸" — one checkable row per list; ticked = shown.
+    /// Latency or throughput ordering for every list. Persisted.
+    enum RankModeSetting {
+        private static let key = "fastListRankMode"
+        static var current: RankMode {
+            get { RankMode(rawValue: UserDefaults.standard.string(forKey: key) ?? "") ?? .latency }
+            set { UserDefaults.standard.set(newValue.rawValue, forKey: key) }
+        }
+    }
+
+    // "Fastest Lists ▸" — rank-mode radio rows, one checkable row per list
+    // (ticked = shown), then the throughput run: a start row, or progress +
+    // Cancel while one is in flight. The top-level title carries the progress
+    // too, so a run is visible without opening the submenu.
     private func buildFastListsItem() -> NSMenuItem {
-        let root = NSMenuItem(title: "Fastest Lists", action: nil, keyEquivalent: "")
+        var title = "Fastest Lists"
+        if case .measuring(let done, let total, _) = throughput.phase {
+            title += " · measuring \(done + 1)/\(total)"
+        } else if throughput.phase == .restoring {
+            title += " · restoring"
+        }
+        let root = NSMenuItem(title: title, action: nil, keyEquivalent: "")
         let sub = NSMenu()
+
+        let mode = RankModeSetting.current
+        for m in RankMode.allCases {
+            let item = NSMenuItem(title: m.menuTitle, action: #selector(setRankMode(_:)), keyEquivalent: "")
+            item.target = self
+            item.representedObject = m.rawValue
+            item.state = m == mode ? .on : .off
+            sub.addItem(item)
+        }
+        sub.addItem(NSMenuItem.separator())
+
         let hidden = HiddenFastLists.current
         for list in FastList.allCases {
             let item = NSMenuItem(title: list.shortName, action: #selector(toggleFastList(_:)), keyEquivalent: "")
@@ -438,9 +484,32 @@ final class App: NSObject, NSApplicationDelegate {
             item.state = hidden.contains(list) ? .off : .on
             sub.addItem(item)
         }
+        sub.addItem(NSMenuItem.separator())
+
+        switch throughput.phase {
+        case .idle:
+            let run = NSMenuItem(title: "Measure Throughput Now", action: #selector(measureThroughput), keyEquivalent: "")
+            run.target = self
+            sub.addItem(run)
+        case .measuring(let done, let total, let city):
+            sub.addItem(infoItem(throughputProgressTitle(done: done, total: total, city: city)))
+            let cancel = NSMenuItem(title: "Cancel", action: #selector(cancelThroughput), keyEquivalent: "")
+            cancel.target = self
+            sub.addItem(cancel)
+        case .restoring:
+            sub.addItem(infoItem("Restoring previous connection…"))
+        }
         root.submenu = sub
         return root
     }
+
+    @objc private func setRankMode(_ sender: NSMenuItem) {
+        guard let raw = sender.representedObject as? String, let mode = RankMode(rawValue: raw) else { return }
+        RankModeSetting.current = mode
+    }
+
+    @objc private func measureThroughput() { throughput.startRun() }
+    @objc private func cancelThroughput() { throughput.cancel() }
 
     @objc private func toggleFastList(_ sender: NSMenuItem) {
         guard let raw = sender.representedObject as? String, let list = FastList(rawValue: raw) else { return }
@@ -451,7 +520,7 @@ final class App: NSObject, NSApplicationDelegate {
 
     // One top-level item per fastest-cities section; city rows + freshness
     // footer live in its submenu so the top level stays short.
-    private func fastCitiesSubmenuItem(_ section: MenuSection, footer: String) -> NSMenuItem {
+    private func fastCitiesSubmenuItem(_ section: MenuSection, footers: [String]) -> NSMenuItem {
         let root = NSMenuItem(title: section.header, action: nil, keyEquivalent: "")
         let sub = NSMenu()
         for row in section.rows {
@@ -462,7 +531,7 @@ final class App: NSObject, NSApplicationDelegate {
             sub.addItem(item)
         }
         sub.addItem(NSMenuItem.separator())
-        sub.addItem(infoItem(footer))
+        for footer in footers { sub.addItem(infoItem(footer)) }
         root.submenu = sub
         return root
     }
