@@ -253,6 +253,19 @@ tailscale set --accept-dns=true   # restore default
 # then re-show the native icons (relaunch the apps, or unhide them in Barn)
 ```
 
+## Releasing
+
+Every push to `main` is a release. Before pushing, add a dated
+`## [X.Y.Z] - YYYY-MM-DD` section to the top of [`CHANGELOG.md`](CHANGELOG.md)
+(minor for features, patch for fixes; turn a waiting `## [Unreleased]` into it).
+When it reaches `main`, GitHub tags `vX.Y.Z` and publishes the section as the
+release; a push without a new version is refused, locally by a `pre-push` hook
+and again by the release workflow. Don't tag by hand. After merging, `git pull`
+for the tag and rebuild. `[no release]` in the tip commit's message is the
+escape hatch for pushes that change nothing a user runs. `install.sh` arms the
+hook; see [StatusItemKit — Releases](https://github.com/nicholaspsmith/StatusItemKit#releases-every-push-is-one)
+for the whole rule.
+
 ## License
 
 Copyright (c) 2026 Nicholas Smith. Licensed under the
