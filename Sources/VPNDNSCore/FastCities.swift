@@ -63,9 +63,11 @@ public struct FastCitiesMenu: Equatable {
     /// One section per `FastList`, in `FastList.allCases` order, empty ones dropped.
     public let sections: [MenuSection]
     public let footer: String
-    public init(sections: [MenuSection], footer: String) {
+    public let throughputFooter: String
+    public init(sections: [MenuSection], footer: String, throughputFooter: String) {
         self.sections = sections
         self.footer = footer
+        self.throughputFooter = throughputFooter
     }
 }
 
@@ -74,27 +76,47 @@ public func visibleSections(_ sections: [MenuSection], hidden: Set<FastList>) ->
     sections.filter { !hidden.contains($0.list) }
 }
 
+private func agoText(_ last: Date, now: Date) -> String {
+    let secs = Int(now.timeIntervalSince(last))
+    if secs < 90 { return "just now" }
+    if secs < 3600 { return "\(secs / 60)m ago" }
+    if secs < 86400 { return "\(secs / 3600)h ago" }
+    return "\(secs / 86400)d ago"
+}
+
 /// Human freshness line for the footer.
 public func freshnessText(_ last: Date?, now: Date) -> String {
     guard let last = last else { return "measured: seed values" }
-    let secs = Int(now.timeIntervalSince(last))
-    let ago: String
-    if secs < 90 { ago = "just now" }
-    else if secs < 3600 { ago = "\(secs / 60)m ago" }
-    else if secs < 86400 { ago = "\(secs / 3600)h ago" }
-    else { ago = "\(secs / 86400)d ago" }
-    return "measured \(ago) (direct)"
+    return "measured \(agoText(last, now: now)) (direct)"
+}
+
+/// Second footer line: when throughput was last measured.
+public func throughputFreshnessText(_ last: Date?, now: Date) -> String {
+    guard let last = last else { return "throughput: not measured" }
+    return "throughput measured \(agoText(last, now: now))"
+}
+
+/// Row text: latency mode shows the effective latency; throughput mode shows
+/// down/up Mbps, or the latency tagged "not tested" for a city never measured.
+public func cityRowTitle(_ relay: CandidateRelay, store: LatencyStore, mode: RankMode) -> String {
+    let ms = Int(store.ms(for: relay).rounded())
+    switch mode {
+    case .latency:
+        return "\(relay.city) — \(ms) ms"
+    case .throughput:
+        guard let tp = store.throughput(for: relay) else { return "\(relay.city) — \(ms) ms · not tested" }
+        return "\(relay.city) — ↓ \(Int(tp.downMbps.rounded())) ↑ \(Int(tp.upMbps.rounded())) Mbps"
+    }
 }
 
 /// Build one menu section per list (top-N cities each, empty lists dropped)
 /// plus the freshness footer.
 public func fastCitiesMenu(store: LatencyStore, currentRelay: String?, now: Date,
-                           topN: Int = 5) -> FastCitiesMenu {
+                           mode: RankMode = .latency, topN: Int = 5) -> FastCitiesMenu {
     func section(_ list: FastList) -> MenuSection {
-        let rows = store.topCities(list: list, n: topN).map { relay -> MenuRow in
-            let ms = Int(store.ms(for: relay).rounded())
+        let rows = store.topCities(list: list, n: topN, mode: mode).map { relay -> MenuRow in
             return MenuRow(
-                title: "\(relay.city) — \(ms) ms",
+                title: cityRowTitle(relay, store: store, mode: mode),
                 cc: relay.cc,
                 cityCode: relay.cityCode,
                 isCurrent: isCurrentCity(relay: currentRelay, cc: relay.cc, cityCode: relay.cityCode)
@@ -104,6 +126,7 @@ public func fastCitiesMenu(store: LatencyStore, currentRelay: String?, now: Date
     }
     return FastCitiesMenu(
         sections: FastList.allCases.map(section).filter { !$0.rows.isEmpty },
-        footer: freshnessText(store.lastDirectMeasurement, now: now)
+        footer: freshnessText(store.lastDirectMeasurement, now: now),
+        throughputFooter: throughputFreshnessText(store.lastThroughputMeasurement, now: now)
     )
 }

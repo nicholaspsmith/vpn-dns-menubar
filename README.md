@@ -50,7 +50,8 @@ Mullvad - Calm Lynx                      ← bold section header, names this
   Fastest Latin America (No-ID)          ▸
   Fastest Europe (No-ID)                 ▸
   Fastest Asia (No-ID)                   ▸
-  Fastest Lists                          ▸ tick/untick which of the above show
+  Fastest Lists                          ▸ rank by latency/throughput, tick/untick
+                                           lists, Measure Throughput Now
 ──────────────────────────────────────────
 Tailscale                                 ← bold section header
   ●  Connection · ON                      → click brings Tailscale up/down
@@ -79,7 +80,7 @@ otherwise, and its row brings the backend up or down. The MagicDNS row is cyan
 watcher (below) re-asserts its mapping on the next Mullvad connect/disconnect.
 
 The **fastest-city submenus** list the top-5 cities from the candidate list
-ranked by latency. "Fastest US" and "Fastest Non-US" are the two halves of the
+ranked by latency or, if you prefer, by measured throughput (see below). "Fastest US" and "Fastest Non-US" are the two halves of the
 pool; "Canada", "Latin America" (Mexico, Colombia, Peru, Chile, Argentina),
 "Europe" (Albania, Serbia, Ukraine) and "Asia" (Thailand, Philippines) slice the
 non-US half by region — Israel is only in Non-US. Every list is No-ID: the pool
@@ -87,8 +88,10 @@ never contains a city outside it. Clicking a city connects Mullvad to that city
 (setting the relay location then running `mullvad connect`); clicking the
 currently-active city disconnects (toggle behavior). A checkmark (✓) marks the
 city you're connected to, and a freshness footer at the bottom of each submenu
-shows when the latencies were last measured. **Fastest Lists ▸** ticks/unticks
-which submenus appear (all six by default; the choice persists).
+shows when the latencies and throughputs were last measured. **Fastest Lists ▸**
+picks the ranking — **Rank by Latency** (default) or **Rank by Throughput** —
+ticks/unticks which submenus appear (all six by default), and starts a
+throughput run; every choice persists.
 
 Latency is re-measured by direct ICMP pings (`/sbin/ping`) when the newest
 measurement is older than **12 hours** (checked every 15 minutes and on
@@ -102,8 +105,34 @@ the Split Tunnel submenu (with a startup sweep so a crash can't leave it
 behind). On first run, and until a live measurement completes, the app falls
 back to seed values baked into `Resources/bundle/candidates.json`. Measurements
 persist across restarts in
-`~/Library/Application Support/VPNDNSMenuBar/latency.json`. To refresh the
-candidate list (update which cities qualify under No-ID rules):
+`~/Library/Application Support/VPNDNSMenuBar/latency.json`.
+
+**Throughput** is a different question from latency — a city 40 ms further
+away can move data several times faster — and it can only be measured by
+actually tunnelling through the relay. So a throughput run walks every
+candidate city in turn (about 21 cities, roughly 15–20 s each, 6–7 minutes in
+all): it sets the relay location, waits for the tunnel to land on that city,
+then times a download from and an upload to Cloudflare's speed-test endpoints
+(`speed.cloudflare.com/__down` and `__up`) — a probe first (10 MB down,
+2 MB up), then a transfer sized to run about five seconds at the probed rate,
+capped at Cloudflare's 90 MB per-request limit. A city whose tunnel or transfer
+fails keeps its previous result. When it finishes, or you click
+**Cancel**, it restores the relay constraint it found (`mullvad relay get`,
+including a custom list) and reconnects or disconnects to match the state it
+started in. A run is intrusive — your traffic hops cities for the duration and
+long-lived connections (an ssh session, say) will drop — so it runs on demand
+(**Fastest Lists ▸ Measure Throughput Now**; the item shows progress and the
+top-level row reads "Fastest Lists · measuring 4/21") and automatically only
+when all three hold: the newest result is older than **7 days**, Mullvad is
+already disconnected, and there has been no keyboard or mouse input for 10
+minutes (checked every 15 minutes). A run that has started always completes.
+
+In throughput mode rows read `Chicago, IL — ↓ 412 ↑ 88 Mbps`, sorted by
+download; cities never tested sink below every tested one as
+`Chicago, IL — 24 ms · not tested`. Results persist in
+`~/Library/Application Support/VPNDNSMenuBar/throughput.json`, separate from
+the latency file. To refresh the candidate list (update which cities qualify
+under No-ID rules):
 
 ```sh
 scripts/refresh-candidates.sh
