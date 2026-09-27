@@ -17,6 +17,8 @@ still in the repo (`vpn-dns-control.5s.sh`, wired only by `./install.sh
 Mullvad/Tailscale menu-bar icons (e.g. with
 [Barn](https://github.com/nicholaspsmith/menubar-barn)) and let this be the only one.
 
+**Version 1.1.0** · [Changelog](https://github.com/nicholaspsmith/vpn-dns-menubar/releases)
+
 ## What you see
 
 The menu bar shows **one icon**: a chameleon.
