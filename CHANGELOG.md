@@ -8,9 +8,13 @@ without one is refused (`[no release]` in the tip commit is the only exception).
 Versions follow [Semantic Versioning](https://semver.org/). The full rule:
 [StatusItemKit — Releases](https://github.com/nicholaspsmith/StatusItemKit#releases-every-push-is-one).
 
-## [Unreleased]
+## [1.1.0] - 2026-09-26
 
-- feat: rank the fastest lists by measured throughput as well as latency
+### Fastest lists by throughput
+
+- Fastest Lists can now rank cities by measured throughput as well as latency ("Rank by Latency" / "Rank by Throughput").
+- "Measure Throughput Now" tunnels through every candidate city, times Cloudflare speed-test downloads, then puts your previous relay choice and connection back the way they were.
+- The measurement also runs on its own when results are more than 7 days old, while Mullvad is off and you're away from the Mac.
 
 ## [1.0.0] - 2026-09-23
 
