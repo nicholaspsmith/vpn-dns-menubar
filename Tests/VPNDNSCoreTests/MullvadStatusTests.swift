@@ -11,12 +11,12 @@ final class MullvadStatusTests: XCTestCase {
     func testDisconnected() {
         let raw = """
         Disconnected
-            Visible location:       United States, Atlanta. IPv4: 203.0.113.42
+            Visible location:       United States, Atlanta. IPv4: 203.0.113.7
         """
         let s = parseMullvadStatus(raw)
         XCTAssertEqual(s.state, .off)
         XCTAssertNil(s.relay)
-        XCTAssertEqual(s.location, "United States, Atlanta. IPv4: 203.0.113.42")
+        XCTAssertEqual(s.location, "United States, Atlanta. IPv4: 203.0.113.7")
     }
 
     func testConnected() {
