@@ -282,7 +282,7 @@ import XCTest
 final class MullvadDeviceTests: XCTestCase {
     func testLoggedIn() {
         let raw = """
-        Mullvad account:    8991497502551539
+        Mullvad account:    1234567890123456
         Expires at:         2026-10-02 14:44:31 -04:00
         Device name:        Fair Sheep
         """
@@ -307,7 +307,7 @@ final class MullvadDeviceTests: XCTestCase {
 
     func testAccountNumberIsNotConfusedForTheName() {
         let raw = """
-        Mullvad account:    8991497502551539
+        Mullvad account:    1234567890123456
         Device name:        Clear Turtle
         """
         XCTAssertEqual(parseMullvadDeviceName(raw), "Clear Turtle")
