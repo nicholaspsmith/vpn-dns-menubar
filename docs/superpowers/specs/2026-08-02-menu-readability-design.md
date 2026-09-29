@@ -138,7 +138,7 @@ tunneling already on — never enabled by us):
 
 ```
 Mullvad                        ← native section header
-  Mullvad: Connected (Denver)
+  Mullvad: Connected (City)
   Split Tunnel                ▸
   Fastest US (No-ID)          ▸
   Fastest Non-US (No-ID · …)  ▸

@@ -43,8 +43,8 @@ Prefer the original dot? **menu ▸ Icon ▸ Dot**.
 Clicking it opens a dropdown, grouped into two bold section headers:
 
 ```
-Mullvad - Calm Lynx                      ← bold section header, names this
-  ●  Connection — Denver, CO · ON           machine's registered device
+Mullvad - Device Name                    ← bold section header, names this
+  ●  Connection — City, ST · ON             machine's registered device
   Split Tunnel: On                       ▸ toggle + excluded-app list
   Fastest US (No-ID)                     ▸ top-5 cities, ✓ = current
   Fastest Non-US (No-ID · torrent-safe)  ▸
@@ -70,7 +70,7 @@ at full contrast too (never the faint disabled gray).
 
 **The three status rows are the same row three times**: a coloured dot, a name,
 whatever detail that row has, and the state as the last word — `Connection —
-Denver, CO · ON` — and clicking any of them toggles what it describes. Mullvad's
+City, ST · ON` — and clicking any of them toggles what it describes. Mullvad's
 dot reuses the menu-bar mapping (green connected · orange connecting or
 disconnecting · red blocked · grey off) and its in-between states say so rather
 than being forced into ON/OFF; connecting goes to Mullvad's own persisted relay
