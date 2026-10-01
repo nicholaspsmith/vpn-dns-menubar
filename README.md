@@ -14,8 +14,8 @@ The primary deliverable is the standalone **"VPN & DNS.app"** (see
 "Standalone Swift app" below). The original menu-bar plugin it replaced is
 still in the repo (`vpn-dns-control.5s.sh`, wired only by `./install.sh
 --swiftbar`) but is retired and undocumented here. Hide the two native
-Mullvad/Tailscale menu-bar icons (e.g. with
-[Barn](https://github.com/nicholaspsmith/menubar-barn)) and let this be the only one.
+Mullvad/Tailscale menu-bar icons (System Settings ▸ Menu Bar on macOS 27)
+and let this be the only one.
 
 **Version 1.1.0** · [Changelog](https://github.com/nicholaspsmith/vpn-dns-menubar/releases)
 
@@ -146,7 +146,7 @@ scripts/refresh-candidates.sh
 - Xcode Command Line Tools (Swift 5.9+) to build the app — `xcode-select --install`
 - [Mullvad VPN](https://mullvad.net/) (CLI at `/usr/local/bin/mullvad`) and
   [Tailscale](https://tailscale.com/) (the Mac app, not the standalone CLI)
-- Optional: [Barn](https://github.com/nicholaspsmith/menubar-barn) to hide the native icons
+- Optional: hide the native icons (System Settings ▸ Menu Bar on macOS 27)
 
 ## Install
 
@@ -252,7 +252,7 @@ launchctl bootout "gui/$(id -u)/com.nicholassmith.mullvad-tailscale-dns"
 rm ~/Library/LaunchAgents/com.nicholassmith.mullvad-tailscale-dns.plist
 tailscale set --accept-dns=true   # restore default
 
-# then re-show the native icons (relaunch the apps, or unhide them in Barn)
+# then re-show the native icons (relaunch the apps, or turn them back on in System Settings ▸ Menu Bar)
 ```
 
 ## Releasing
@@ -303,7 +303,7 @@ colour, and cooperative hiding so no icon strands another.
 | [MacRecorder](https://github.com/nicholaspsmith/MacRecorder) | Screen recording with system audio |
 | [Media Tracking Killer](https://github.com/nicholaspsmith/media-tracking-killer-menubar) | Kills Apple's media tracking daemons |
 | [Download Recycler](https://github.com/nicholaspsmith/download-recycler-menubar) | Sweeps stale files out of ~/Downloads |
-| [Barn](https://github.com/nicholaspsmith/menubar-barn) | Hides a block of status icons by width, so it cannot strand one |
+| [Barn](https://github.com/nicholaspsmith/menubar-barn) | Sunset: macOS 26 and earlier only. Hid a block of status icons by width; on macOS 27 use System Settings ▸ Menu Bar |
 
 | Framework | |
 |---|---|
