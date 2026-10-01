@@ -1,8 +1,8 @@
 # vpn-dns-menubar
 
-<p align="center"><img src="docs/mascot.png" width="160" alt="VPN & DNS mascot, from the Menubarn widget library"></p>
+<p align="center"><img src="docs/mascot.png" width="160" alt="VPN & DNS mascot, from Menumon"></p>
 
-<p align="center">Part of the <a href="https://widgets.nicksmith.software">Menubarn</a> widget library.</p>
+<p align="center">Part of <strong><a href="https://menumon.nicksmith.software">Menumon</a></strong>.</p>
 
 ![The VPN & DNS menu](screenshots/menu.png)
 
