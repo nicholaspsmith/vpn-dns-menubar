@@ -17,7 +17,7 @@ still in the repo (`vpn-dns-control.5s.sh`, wired only by `./install.sh
 Mullvad/Tailscale menu-bar icons (System Settings ▸ Menu Bar on macOS 27)
 and let this be the only one.
 
-**Version 1.1.0** · [Changelog](https://github.com/nicholaspsmith/vpn-dns-menubar/releases)
+**Version 1.2.0** · [Changelog](https://github.com/nicholaspsmith/vpn-dns-menubar/releases)
 
 ## What you see
 
@@ -37,6 +37,11 @@ is one thing the animal does, so the icon says all of them at once:
 - **Either VPN up:** the body turns green; Mullvad's in-between states still
   borrow the dot's colours — orange while connecting or disconnecting, red when
   blocked.
+
+Once a minute Caveepyan, the chameleon, licks. With her tongue in, it shoots
+out and flicks twice at the air. With it wrapped round the branch (Mullvad
+up), it unwinds, reels back into her mouth, then shoots out and wraps the
+branch again. When several Menumon mascots are running they take turns, a second apart: Archimedes (Claude Usage), Menu Pimp (Mac Daddy), Carol (SoundChain), Caveepyan (VPN & DNS), then Armonitor (Monitor Lizard), counting only the ones that are running. Skipped when Reduce Motion is on.
 
 Prefer the original dot? **menu ▸ Icon ▸ Dot**.
 

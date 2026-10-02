@@ -222,6 +222,11 @@ final class App: NSObject, NSApplicationDelegate {
         controller.start()
         yieldClient = YieldClient(item: controller)
         yieldClient.start()
+        minuteCue = MinuteCue { [weak self] in
+            guard IconStyle.current == .chameleon else { return }
+            self?.lickAnimation.start()
+        }
+        minuteCue.start()
         probe = LatencyProbe(
             store: store,
             isOff: { [weak self] in
@@ -349,11 +354,23 @@ final class App: NSObject, NSApplicationDelegate {
     private var lastTongue = false
     private var lastDNS = false
     private var lastAlert: NSColor? = nil
+    /// Once a minute, in her turn with the other animated mascots, Caveepyan
+    /// licks: tongue in, it flicks at the air; wrapped round the branch, it
+    /// unwinds, reels in and wraps again. Seconds into the lick, nil at rest.
+    private var minuteCue: MinuteCue!
+    private var lickTime: TimeInterval?
+    private lazy var lickAnimation = IconAnimation(duration: CharacterIcon.chameleonLickDuration, frame: { [weak self] t in
+        self?.lickTime = t
+        self?.applyIcon()
+    }, completion: { [weak self] in
+        self?.lickTime = nil
+        self?.applyIcon()
+    })
 
     private func applyIcon() {
         switch IconStyle.current {
         case .chameleon: controller.setIcon(CharacterIcon.chameleon(tailscale: lastTail, mullvad: lastTongue,
-                                                                    acceptDNS: lastDNS, alert: lastAlert))
+                                                                    acceptDNS: lastDNS, alert: lastAlert, lick: lickTime))
         case .dot: controller.setIcon(MeterIcon.dot(color: lastIconColor))
         }
     }
