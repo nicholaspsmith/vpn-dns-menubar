@@ -8,6 +8,11 @@ without one is refused (`[no release]` in the tip commit is the only exception).
 Versions follow [Semantic Versioning](https://semver.org/). The full rule:
 [StatusItemKit — Releases](https://github.com/nicholaspsmith/StatusItemKit#releases-every-push-is-one).
 
+## [1.2.0] - 2026-10-02
+
+- feat: once a minute Caveepyan licks: her tongue flicks at the air, or unwinds from the branch, reels in and wraps it again, in turn with the other animated Menumon mascots
+- Mascot renamed: the chameleon is Caveepyan
+
 ## [1.1.2] - 2026-09-28
 
 - The README's menu screenshot and example menu no longer show a Mullvad device name, relay city or IP address
