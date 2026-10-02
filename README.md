@@ -43,6 +43,8 @@ out and flicks twice at the air. With it wrapped round the branch (Mullvad
 up), it unwinds, reels back into her mouth, then shoots out and wraps the
 branch again. When several Menumon mascots are running they take turns, a second apart: Archimedes (Claude Usage), Menu Pimp (Mac Daddy), Carol (SoundChain), Caveepyan (VPN & DNS), then Armonitor (Monitor Lizard), counting only the ones that are running. Skipped when Reduce Motion is on.
 
+![Caveepyan licking: tongue in (left), and unwinding from the branch and wrapping it again (right)](docs/animation.png)
+
 Prefer the original dot? **menu ▸ Icon ▸ Dot**.
 
 Clicking it opens a dropdown, grouped into two bold section headers:
