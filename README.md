@@ -131,10 +131,13 @@ including a custom list) and reconnects or disconnects to match the state it
 started in. A run is intrusive — your traffic hops cities for the duration and
 long-lived connections (an ssh session, say) will drop — so it runs on demand
 (**Fastest Lists ▸ Measure Throughput Now**; the item shows progress and the
-top-level row reads "Fastest Lists · measuring 4/21") and automatically only
-when all three hold: the newest result is older than **7 days**, Mullvad is
-already disconnected, and there has been no keyboard or mouse input for 10
-minutes (checked every 15 minutes). A run that has started always completes.
+top-level row reads "Fastest Lists · measuring 4/21") and automatically **at
+most once a day**, only when all three hold: no run (automatic or manual) has
+started in the last 24 hours, Mullvad is already disconnected, and there has
+been no keyboard or mouse input for 10 minutes. The day is counted from when a
+run starts, not from when one last recorded a result, so a run in which every
+city fails (an expired account, say) does not retry until the next day. A run
+that has started always completes.
 
 In throughput mode rows read `Chicago, IL — ↓ 412 ↑ 88 Mbps`, sorted by
 download; cities never tested sink below every tested one as
