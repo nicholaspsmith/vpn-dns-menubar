@@ -8,6 +8,10 @@ without one is refused (`[no release]` in the tip commit is the only exception).
 Versions follow [Semantic Versioning](https://semver.org/). The full rule:
 [StatusItemKit — Releases](https://github.com/nicholaspsmith/StatusItemKit#releases-every-push-is-one).
 
+## [1.3.0] - 2026-10-03
+
+- The automatic throughput test now runs at most once a day (or when you pick Measure Throughput Now), instead of every 15 minutes whenever the last attempt recorded nothing. With an expired Mullvad account every attempt failed, so the app kept connecting you, failing, and leaving the connection blocked
+
 ## [1.2.0] - 2026-10-02
 
 - feat: once a minute Caveepyan licks: her tongue flicks at the air, or unwinds from the branch, reels in and wraps it again, in turn with the other animated Menumon mascots

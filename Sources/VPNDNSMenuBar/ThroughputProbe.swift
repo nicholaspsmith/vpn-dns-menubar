@@ -14,8 +14,9 @@ import VPNDNSCore
 /// Cloudflare's speed-test endpoints — a small probe transfer first, then one
 /// sized to run about five seconds at the probed rate (capped at Cloudflare's
 /// 90 MB per-request limit). Deliberately intrusive, so it runs
-/// on demand from the menu or automatically only when results are older
-/// than `throughputMaxAge`, Mullvad is off, and the user has been idle.
+/// on demand from the menu or automatically at most once a day
+/// (`throughputAutoInterval` since the last run started), only while Mullvad
+/// is off and the user has been idle.
 /// When it finishes (or is cancelled) it restores the original relay
 /// constraint and connected/off state. All state below is main-thread-only
 /// except where noted.
@@ -37,6 +38,7 @@ final class ThroughputProbe {
     private(set) var phase: Phase = .idle
 
     static let minIdle: TimeInterval = 10 * 60
+    static let lastRunKey = "throughputLastRunStarted"
     static let downloadURL = "https://speed.cloudflare.com/__down"
     static let uploadURL = "https://speed.cloudflare.com/__up"
     static let probeBytes = 10_000_000
@@ -64,10 +66,10 @@ final class ThroughputProbe {
 
     func autoRunIfNeeded() {
         guard !isRunning else { return }
-        let stale = isLatencyStale(last: store.lastThroughputMeasurement, now: Date(), maxAge: throughputMaxAge)
+        let lastRun = UserDefaults.standard.object(forKey: Self.lastRunKey) as? Date
         let idle = CGEventSource.secondsSinceLastEventType(.combinedSessionState,
                                                            eventType: CGEventType(rawValue: ~0)!)
-        guard shouldAutoMeasureThroughput(stale: stale, mullvadOff: isOff(),
+        guard shouldAutoMeasureThroughput(lastRun: lastRun, now: Date(), mullvadOff: isOff(),
                                           idleSeconds: idle, minIdle: Self.minIdle) else { return }
         startRun()
     }
@@ -78,6 +80,7 @@ final class ThroughputProbe {
         cancelLock.lock(); cancelRequested = false; cancelLock.unlock()
         let relays = store.pool.us + store.pool.nonus
         guard let first = relays.first else { return }
+        UserDefaults.standard.set(Date(), forKey: Self.lastRunKey)
         phase = .measuring(done: 0, total: relays.count, city: first.city)
         queue.async { [weak self] in self?.run(relays) }
     }
