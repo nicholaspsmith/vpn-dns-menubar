@@ -33,7 +33,7 @@ Each connection is one thing she does, so the icon shows every state at once:
 | Mullvad connecting / disconnecting | Orange body |
 | Mullvad blocked | Red body |
 
-Once a minute Iguanamous licks: with her tongue in, it flicks out twice; with it
+Now and then Iguanamous licks: with her tongue in, it flicks out twice; with it
 wrapped round the branch, it unwinds, reels in and wraps the branch again. When
 several Menumon mascots are running they take turns, a second apart:
 Archimedes (Claude Usage), Menu Pimp (Mac Daddy), Carol (SoundChain), Iguanamous
