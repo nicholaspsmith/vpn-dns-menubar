@@ -235,7 +235,6 @@ cannot exclude Tailscale's system network extension. To reach a tailnet host,
 | `dns-watcher/mullvad-tailscale-dns-sync.sh` | The DNS watcher. |
 | `dns-watcher/com.nicholassmith.mullvad-tailscale-dns.plist` | LaunchAgent template (`__SCRIPT__` filled in by `install.sh`). |
 | `install.sh` | Builds and links the app, loads the watcher. |
-| `vpn-dns-control.5s.sh`, `assets/` | Fallback SwiftBar plugin and its helper script and images; unused by the app. `./install.sh --swiftbar` wires it. |
 
 ## Uninstall
 
@@ -279,10 +278,6 @@ Copyright (c) 2026 Nicholas Smith. Licensed under the
 redistribute this software, including inside proprietary products, provided
 the copyright notice and license stay on these files and any modified
 versions of them are made available under the same license.
-
-## Why not a SwiftBar plugin?
-
-This is a standalone `.app` built on [StatusItemKit](https://github.com/nicholaspsmith/StatusItemKit), not a script under a plugin host: no SwiftBar to install, a real AppKit menu instead of rendered stdout, a fixed in-process poll instead of re-running a script, and an icon that keeps its place in the bar. It needs no Accessibility or Automation grant. The full comparison is in [StatusItemKit's README](https://github.com/nicholaspsmith/StatusItemKit#why-not-swiftbar).
 
 ## The menu-bar suite
 
