@@ -23,7 +23,7 @@ private func nsColor(_ c: DotColor) -> NSColor {
     case .red: return NSColor(red: 1.0, green: 0.27, blue: 0.23, alpha: 1)       // #ff453a
     case .grey: return NSColor(red: 0.60, green: 0.60, blue: 0.62, alpha: 1)     // #98989d
     case .blue: return NSColor(red: 0.04, green: 0.52, blue: 1.0, alpha: 1)      // #0a84ff
-    // Shared with the chameleon's accept-dns eye, so the row and the glyph
+    // Shared with the iguana's accept-dns eye, so the row and the glyph
     // are visibly the same signal.
     case .cyan: return CharacterIcon.dnsCyan                                     // #3dd4ed
     }
@@ -223,7 +223,7 @@ final class App: NSObject, NSApplicationDelegate {
         yieldClient = YieldClient(item: controller)
         yieldClient.start()
         minuteCue = MinuteCue { [weak self] in
-            guard IconStyle.current == .chameleon else { return }
+            guard IconStyle.current == .iguana else { return }
             self?.lickAnimation.start()
         }
         minuteCue.start()
@@ -325,7 +325,7 @@ final class App: NSObject, NSApplicationDelegate {
                 self.lastTail = be == "Running"
                 self.lastTongue = mv.state == .connected
                 self.lastDNS = self.corpDNS
-                // The chameleon colours itself by connection; only Mullvad's
+                // The iguana colours itself by connection; only Mullvad's
                 // in-between states (connecting, blocked) borrow the dot's colour.
                 switch mv.state {
                 case .connecting, .disconnecting, .blocked: self.lastAlert = self.lastIconColor
@@ -338,13 +338,15 @@ final class App: NSObject, NSApplicationDelegate {
 
     // MARK: - Icon style
 
-    /// The dot, or the chameleon that changes to the same colours. Persisted.
+    /// The dot, or the iguana that changes to the same colours. Persisted.
     enum IconStyle: String, CaseIterable {
-        case chameleon, dot
-        var title: String { self == .dot ? "Dot" : "Chameleon" }
+        // Stored as "chameleon", what the mascot was before it became an
+        // iguana, so an existing choice carries over.
+        case iguana = "chameleon", dot
+        var title: String { self == .dot ? "Dot" : "Iguana" }
         private static let key = "iconStyle"
         static var current: IconStyle {
-            get { UserDefaults.standard.string(forKey: key).flatMap(IconStyle.init) ?? .chameleon }
+            get { UserDefaults.standard.string(forKey: key).flatMap(IconStyle.init) ?? .iguana }
             set { UserDefaults.standard.set(newValue.rawValue, forKey: key) }
         }
     }
@@ -354,12 +356,12 @@ final class App: NSObject, NSApplicationDelegate {
     private var lastTongue = false
     private var lastDNS = false
     private var lastAlert: NSColor? = nil
-    /// Once a minute, in her turn with the other animated mascots, Caveepyan
+    /// Once a minute, in her turn with the other animated mascots, Iguanamous
     /// licks: tongue in, it flicks at the air; wrapped round the branch, it
     /// unwinds, reels in and wraps again. Seconds into the lick, nil at rest.
     private var minuteCue: MinuteCue!
     private var lickTime: TimeInterval?
-    private lazy var lickAnimation = IconAnimation(duration: CharacterIcon.chameleonLickDuration, frame: { [weak self] t in
+    private lazy var lickAnimation = IconAnimation(duration: CharacterIcon.iguanaLickDuration, frame: { [weak self] t in
         self?.lickTime = t
         self?.applyIcon()
     }, completion: { [weak self] in
@@ -369,8 +371,8 @@ final class App: NSObject, NSApplicationDelegate {
 
     private func applyIcon() {
         switch IconStyle.current {
-        case .chameleon: controller.setIcon(CharacterIcon.chameleon(tailscale: lastTail, mullvad: lastTongue,
-                                                                    acceptDNS: lastDNS, alert: lastAlert, lick: lickTime))
+        case .iguana: controller.setIcon(CharacterIcon.iguana(tailscale: lastTail, mullvad: lastTongue,
+                                                              acceptDNS: lastDNS, alert: lastAlert, lick: lickTime))
         case .dot: controller.setIcon(MeterIcon.dot(color: lastIconColor))
         }
     }
