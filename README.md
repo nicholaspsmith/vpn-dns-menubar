@@ -8,143 +8,144 @@
 
 ![The VPN & DNS menu](screenshots/menu.png)
 
-One macOS menu-bar icon that consolidates **Mullvad VPN** and **Tailscale** into a
-single iguana, with a sectioned dropdown covering both apps — and a small
-launchd watcher that keeps DNS working when Mullvad and Tailscale run at once.
-
-The primary deliverable is the standalone **"VPN & DNS.app"** (see
-"Standalone Swift app" below). The original menu-bar plugin it replaced is
-still in the repo (`vpn-dns-control.5s.sh`, wired only by `./install.sh
---swiftbar`) but is retired and undocumented here. Hide the two native
-Mullvad/Tailscale menu-bar icons (System Settings ▸ Menu Bar on macOS 27)
-and let this be the only one.
+A macOS menu-bar app, **"VPN & DNS.app"**, that shows **Mullvad VPN** and
+**Tailscale** as one icon with one dropdown, plus a launchd watcher that keeps
+DNS working while both run at once. Hide the native Mullvad and Tailscale
+menu-bar icons (System Settings ▸ Menu Bar on macOS 27) and use this one.
 
 **Version 1.4.0** · [Changelog](https://github.com/nicholaspsmith/vpn-dns-menubar/releases)
 
 ## What you see
 
-The menu bar shows **one icon**: an iguana.
+The icon is Iguanamous, an iguana on a branch.
 
 ![The menu-bar icon](docs/menubar-icon.png)
 
-It sits on a branch in resting olive while nothing is connected. Each connection
-is one thing the animal does, so the icon says all of them at once:
+Each connection is one thing she does, so the icon shows every state at once:
 
-- **Tailscale running:** the tail comes down off its back and wraps around the
-  branch. Otherwise it stays rolled up behind it.
-- **Mullvad connected:** the tongue shoots out and wraps the branch ahead of it.
-- **accept-dns (MagicDNS) on:** its eye turns cyan — the same cyan the row's
-  dot takes. Not green: the body is already green whenever a VPN is up, and a
-  green iris inside it was a state you had to hunt for.
-- **Either VPN up:** the body turns green; Mullvad's in-between states still
-  borrow the dot's colours — orange while connecting or disconnecting, red when
-  blocked.
+| State | Icon |
+|---|---|
+| Nothing connected | Olive body, tail rolled up, tongue in |
+| Tailscale running | Tail wrapped round the branch |
+| Mullvad connected | Tongue wrapped round the branch ahead |
+| accept-dns (MagicDNS) on | Cyan eye (same cyan as the MagicDNS row's dot) |
+| Either VPN up | Green body |
+| Mullvad connecting / disconnecting | Orange body |
+| Mullvad blocked | Red body |
 
-Once a minute Iguanamous, the iguana, licks. With her tongue in, it shoots
-out and flicks twice at the air. With it wrapped round the branch (Mullvad
-up), it unwinds, reels back into her mouth, then shoots out and wraps the
-branch again. When several Menumon mascots are running they take turns, a second apart: Archimedes (Claude Usage), Menu Pimp (Mac Daddy), Carol (SoundChain), Iguanamous (VPN & DNS), then Armonitor (Monitor Lizard), counting only the ones that are running. Skipped when Reduce Motion is on.
+Once a minute Iguanamous licks: with her tongue in, it flicks out twice; with it
+wrapped round the branch, it unwinds, reels in and wraps the branch again. When
+several Menumon mascots are running they take turns, a second apart:
+Archimedes (Claude Usage), Menu Pimp (Mac Daddy), Carol (SoundChain), Iguanamous
+(VPN & DNS), then Armonitor (Monitor Lizard), counting only the ones running.
+The animation is skipped when Reduce Motion is on.
 
-Prefer the original dot? **menu ▸ Icon ▸ Dot**.
+**Icon ▸ Dot** swaps the iguana for a single coloured status dot; **Icon ▸
+Iguana** brings her back.
 
-Clicking it opens a dropdown, grouped into two bold section headers:
+## The menu
 
 ```
-Mullvad - Device Name                    ← bold section header, names this
-  ●  Connection — City, ST · ON             machine's registered device
-  Split Tunnel: On                       ▸ toggle + excluded-app list
+Mullvad - Device Name                    ← section header (this Mac's Mullvad device)
+  ●  Connection — City, ST · ON          → click connects / disconnects
+  Split Tunnel: On                       ▸ toggle, excluded apps, Add App…
   Fastest US (No-ID)                     ▸ top-5 cities, ✓ = current
   Fastest Non-US (No-ID · torrent-safe)  ▸
   Fastest Canada (No-ID)                 ▸
   Fastest Latin America (No-ID)          ▸
   Fastest Europe (No-ID)                 ▸
   Fastest Asia (No-ID)                   ▸
-  Fastest Lists                          ▸ rank by latency/throughput, tick/untick
-                                           lists, Measure Throughput Now
+  Fastest Lists                          ▸ ranking, which lists show, Measure Throughput Now
 ──────────────────────────────────────────
-Tailscale                                 ← bold section header
-  ●  Connection · ON                      → click brings Tailscale up/down
-  ◍  MagicDNS — accept-dns · ON           → click toggles accept-dns (cyan dot)
+Tailscale                                ← section header
+  ●  Connection · ON                     → click brings Tailscale up / down
+  ◍  MagicDNS — accept-dns · ON          → click toggles accept-dns
   Open Tailscale App
 ──────────────────────────────────────────
+Icon                                     ▸ Dot / Iguana
 Start at Login
 ──────────────────────────────────────────
+Version X.Y.Z
 Quit
 ```
 
-Section headers are bold, full-contrast, non-clickable; informational rows render
-at full contrast too (never the faint disabled gray).
+Section headers and informational rows render at full contrast, never the
+disabled grey.
 
-**The three status rows are the same row three times**: a coloured dot, a name,
-whatever detail that row has, and the state as the last word — `Connection —
-City, ST · ON` — and clicking any of them toggles what it describes. Mullvad's
-dot reuses the menu-bar mapping (green connected · orange connecting or
-disconnecting · red blocked · grey off) and its in-between states say so rather
-than being forced into ON/OFF; connecting goes to Mullvad's own persisted relay
-selection (whatever was last chosen via the fast-city submenus or the native
-app). Tailscale's dot is green running · orange starting or needs-login · grey
-otherwise, and its row brings the backend up or down. The MagicDNS row is cyan
-(ON) / grey (OFF) — matching the iguana's eye — and toggles
-`tailscale set --accept-dns`. That toggle is a *temporary override* — the DNS
-watcher (below) re-asserts its mapping on the next Mullvad connect/disconnect.
+**Status rows.** All three share one shape — coloured dot, name, detail, state
+as the last word — and clicking one toggles what it describes.
 
-The **fastest-city submenus** list the top-5 cities from the candidate list
-ranked by latency or, if you prefer, by measured throughput (see below). "Fastest US" and "Fastest Non-US" are the two halves of the
-pool; "Canada", "Latin America" (Mexico, Colombia, Peru, Chile, Argentina),
-"Europe" (Albania, Serbia, Ukraine) and "Asia" (Thailand, Philippines) slice the
-non-US half by region — Israel is only in Non-US. Every list is No-ID: the pool
-never contains a city outside it. Clicking a city connects Mullvad to that city
-(setting the relay location then running `mullvad connect`); clicking the
-currently-active city disconnects (toggle behavior). A checkmark (✓) marks the
-city you're connected to, and a freshness footer at the bottom of each submenu
-shows when the latencies and throughputs were last measured. **Fastest Lists ▸**
-picks the ranking — **Rank by Latency** (default) or **Rank by Throughput** —
-ticks/unticks which submenus appear (all six by default), and starts a
-throughput run; every choice persists.
+- **Mullvad**: dot is green connected, orange connecting or disconnecting, red
+  blocked, grey off. In-between states are named rather than forced into
+  ON/OFF. Connecting uses Mullvad's own persisted relay selection.
+- **Tailscale**: dot is green running, orange starting or needs-login, grey
+  otherwise. The click brings the backend up or down.
+- **MagicDNS**: cyan ON, grey OFF; the click runs `tailscale set --accept-dns`.
+  This is a temporary override: the DNS watcher re-asserts its mapping on the
+  next Mullvad connect or disconnect.
 
-Latency is re-measured by direct ICMP pings (`/sbin/ping`) when the newest
-measurement is older than **12 hours** (checked every 15 minutes and on
-Mullvad-off transitions): normally while Mullvad is disconnected; if Mullvad is
-connected and split tunneling is *already* on, the app temporarily adds
-`/sbin/ping` to the split-tunnel exclusions so pings bypass the tunnel, verifies
-the exclusion took (re-checking again before recording), then removes it. It
-never turns split tunneling on or off itself — connected + split-tunneling-off
-just waits for the next off-window — and it hides the transient exclusion from
-the Split Tunnel submenu (with a startup sweep so a crash can't leave it
-behind). On first run, and until a live measurement completes, the app falls
-back to seed values baked into `Resources/bundle/candidates.json`. Measurements
-persist across restarts in
+**Fastest-city submenus.** Each lists the top five cities from the candidate
+pool, ranked by latency or by measured throughput. "Fastest US" and "Fastest
+Non-US" split the pool in two; "Canada", "Latin America" (Mexico, Colombia,
+Peru, Chile, Argentina), "Europe" (Albania, Serbia, Ukraine) and "Asia"
+(Thailand, Philippines) slice the non-US half by region. Israel appears only in
+Non-US. Every city in the pool qualifies under No-ID rules. Clicking a city sets
+the relay location and runs `mullvad connect`; clicking the current city (✓)
+disconnects. A footer shows when latency and throughput were last measured.
+
+**Fastest Lists ▸** picks **Rank by Latency** (default) or **Rank by
+Throughput**, ticks which of the six submenus appear (all by default), and
+starts or cancels a throughput run. Every choice persists.
+
+### Latency
+
+Latency is measured with direct ICMP pings (`/sbin/ping`) when the newest
+measurement is more than **12 hours** old, checked every 15 minutes and whenever
+Mullvad turns off.
+
+- Normally it runs while Mullvad is disconnected.
+- If Mullvad is connected and split tunnelling is already on, the app adds
+  `/sbin/ping` to the split-tunnel exclusions, verifies the exclusion took,
+  pings, then removes it. The transient exclusion is hidden from the Split
+  Tunnel submenu, and a startup sweep removes it if a crash left it behind.
+- It never turns split tunnelling on or off itself; connected with split
+  tunnelling off, it waits for the next disconnected window.
+
+Until the first live measurement completes, the app uses seed values from
+`Resources/bundle/candidates.json`. Results persist in
 `~/Library/Application Support/VPNDNSMenuBar/latency.json`.
 
-**Throughput** is a different question from latency — a city 40 ms further
-away can move data several times faster — and it can only be measured by
-actually tunnelling through the relay. So a throughput run walks every
-candidate city in turn (about 21 cities, roughly 15–20 s each, 6–7 minutes in
-all): it sets the relay location, waits for the tunnel to land on that city,
-then times a download from and an upload to Cloudflare's speed-test endpoints
-(`speed.cloudflare.com/__down` and `__up`) — a probe first (10 MB down,
-2 MB up), then a transfer sized to run about five seconds at the probed rate,
-capped at Cloudflare's 90 MB per-request limit. A city whose tunnel or transfer
-fails keeps its previous result. When it finishes, or you click
-**Cancel**, it restores the relay constraint it found (`mullvad relay get`,
-including a custom list) and reconnects or disconnects to match the state it
-started in. A run is intrusive — your traffic hops cities for the duration and
-long-lived connections (an ssh session, say) will drop — so it runs on demand
-(**Fastest Lists ▸ Measure Throughput Now**; the item shows progress and the
-top-level row reads "Fastest Lists · measuring 4/21") and automatically **at
-most once a day**, only when all three hold: no run (automatic or manual) has
-started in the last 24 hours, Mullvad is already disconnected, and there has
-been no keyboard or mouse input for 10 minutes. The day is counted from when a
-run starts, not from when one last recorded a result, so a run in which every
-city fails (an expired account, say) does not retry until the next day. A run
-that has started always completes.
+### Throughput
 
-In throughput mode rows read `Chicago, IL — ↓ 412 ↑ 88 Mbps`, sorted by
-download; cities never tested sink below every tested one as
-`Chicago, IL — 24 ms · not tested`. Results persist in
-`~/Library/Application Support/VPNDNSMenuBar/throughput.json`, separate from
-the latency file. To refresh the candidate list (update which cities qualify
-under No-ID rules):
+Throughput can only be measured by tunnelling through each relay, so a run
+walks every candidate city in turn (about 21 cities, 15–20 s each, 6–7 minutes
+in all). For each city it sets the relay location, waits for the tunnel to land
+there, then times a download from and an upload to Cloudflare's speed-test
+endpoints (`speed.cloudflare.com/__down` and `__up`): a probe (10 MB down, 2 MB
+up), then a transfer sized to take about five seconds at the probed rate,
+capped at Cloudflare's 90 MB per-request limit. A city whose tunnel or transfer
+fails keeps its previous result. When the run finishes or you click **Cancel**,
+it restores the relay constraint it found (`mullvad relay get`, including a
+custom list) and reconnects or disconnects to match the starting state.
+
+A run moves your traffic between cities and drops long-lived connections, so it
+runs:
+
+- on demand, from **Fastest Lists ▸ Measure Throughput Now** (the row shows
+  progress, e.g. "Fastest Lists · measuring 4/21"); or
+- automatically **at most once a day**, only when no run has started in the last
+  24 hours, Mullvad is disconnected, and there has been no keyboard or mouse
+  input for 10 minutes. The 24 hours count from a run's start, so a run where
+  every city fails (an expired account, say) does not retry until the next day.
+
+A run that has started always completes. In throughput mode rows read
+`Chicago, IL — ↓ 412 ↑ 88 Mbps`, sorted by download; untested cities sort last
+as `Chicago, IL — 24 ms · not tested`. Results persist in
+`~/Library/Application Support/VPNDNSMenuBar/throughput.json`.
+
+### Candidate cities
+
+To regenerate the candidate pool (which cities qualify under No-ID rules):
 
 ```sh
 scripts/refresh-candidates.sh
@@ -152,11 +153,12 @@ scripts/refresh-candidates.sh
 
 ## Requirements
 
-- macOS 13+ (the Swift app's platform floor)
-- Xcode Command Line Tools (Swift 5.9+) to build the app — `xcode-select --install`
+- macOS 13+
+- Xcode Command Line Tools (Swift 5.9+) to build — `xcode-select --install`
 - [Mullvad VPN](https://mullvad.net/) (CLI at `/usr/local/bin/mullvad`) and
   [Tailscale](https://tailscale.com/) (the Mac app, not the standalone CLI)
-- Optional: hide the native icons (System Settings ▸ Menu Bar on macOS 27)
+
+No Accessibility or Automation permission is needed.
 
 ## Install
 
@@ -166,94 +168,79 @@ cd vpn-dns-menubar
 ./install.sh
 ```
 
-`install.sh` is idempotent and:
+`install.sh` is idempotent. It:
 
-1. **Builds "VPN & DNS.app"** (`scripts/build-app.sh`), symlinks it into
-   `~/Applications` (SMAppService requires that location; the repo's `build/`
-   stays the source of truth so rebuilds propagate), and opens it.
-2. Generates the launchd plist from the template and **bootstraps the DNS-sync
-   agent** (`com.nicholassmith.mullvad-tailscale-dns`).
+1. Builds "VPN & DNS.app" (`scripts/build-app.sh`), symlinks it into
+   `~/Applications` (SMAppService needs that location; `build/` stays the
+   source of truth, so rebuilds propagate), and opens it.
+2. Generates the launchd plist from the template and bootstraps the DNS watcher
+   (`com.nicholassmith.mullvad-tailscale-dns`).
+3. Offers to turn on Start at Login (when run in a terminal), and arms the
+   release `pre-push` hook.
 
-Then use the menu's **Start at Login** toggle and hide the native
-Mullvad/Tailscale icons. No Accessibility/Automation permission is needed.
-
-### Start at Login
-
-Toggle it from the menu, or from the shell:
+To build and run without installing:
 
 ```sh
-"$HOME/Applications/VPN & DNS.app/Contents/MacOS/VPNDNSMenuBar" --login on       # or: off, status
-```
-
-`install.sh` asks to run this for you (when run in a terminal). Start at Login is `SMAppService.mainApp`, which can only
-register the calling process's own bundle — so nothing outside the app can turn
-it on, and the command has to be the *installed* binary. A bare `--login`, or
-`--login status`, only reports the current state and changes nothing.
-
-## Repo layout
-
-| Path | Role |
-|------|------|
-| `vpn-dns-control.5s.sh` | The retired menu-bar plugin, kept as a fallback (`./install.sh --swiftbar` wires it). |
-| `assets/open-native-menu.sh` | Helper: `… mullvad\|tailscale` → AX-clicks the app's menu-bar item to open its native menu. |
-| `assets/mullvad.png`, `tailscale.png` | App icons shown on the dropdown rows. |
-| `assets/menubar-{green,orange,red,grey}.png` | Dot-only icons (24×44, 16px dot). **Unused fallback** — the bar is now an SF Symbol; kept in case the PNG route is wanted again. |
-| `dns-watcher/mullvad-tailscale-dns-sync.sh` | The launchd watcher (driven by `mullvad status listen`): toggles Tailscale `accept-dns` with Mullvad state. |
-| `dns-watcher/com.nicholassmith.mullvad-tailscale-dns.plist` | LaunchAgent template (`__SCRIPT__` filled in by `install.sh`). |
-| `install.sh` | Build + link the app and load the agent. |
-
-## The DNS watcher (separate but related — the original problem)
-
-Connecting Mullvad while Tailscale runs broke **all** DNS (no web, no iMessage):
-Tailscale's DNS proxy (`accept-dns` / CorpDNS) forwards every query to a resolver
-that's unreachable through Mullvad's tunnel. The fix is a launchd watcher that
-disables Tailscale `accept-dns` while Mullvad is up and restores it the moment
-Mullvad disconnects — event-driven via `mullvad status listen`, no polling.
-
-While Mullvad is connected, MagicDNS is off and the tailnet is unreachable (Mullvad
-split-tunnel can't exclude Tailscale's system network extension — tested, doesn't
-work). So reaching a tailnet host means `mullvad disconnect` → do the thing →
-`mullvad connect`.
-
-## Standalone Swift app
-
-The repo's primary deliverable is a standalone Swift menu-bar app,
-`VPNDNSMenuBar` (bundle **"VPN & DNS.app"**), built on
-[StatusItemKit](https://github.com/nicholaspsmith/StatusItemKit). It polls
-`mullvad`/`tailscale` every 5s, shows the colored menu-bar dot, and builds the
-sectioned dropdown described under "What you see": bold section headers, per-row
-status dots, top-5 fastest-city submenus, the registered Mullvad device in the
-group header, and click-to-toggle rows (Mullvad connection, Tailscale,
-accept-dns). All output
-parsing, label text, and probe/staleness decisions live in a pure, unit-tested
-`VPNDNSCore` library.
-
-```sh
-./scripts/build-app.sh   # build/VPN & DNS.app (stable self-signed identity if present, else ad-hoc)
+./scripts/build-app.sh   # → build/VPN & DNS.app (stable self-signed identity if present, else ad-hoc)
 open "build/VPN & DNS.app"
 ```
 
-Clicking the Mullvad row toggles the connection via the `mullvad` CLI —
-connect goes to Mullvad's own persisted relay selection. (The old AppleScript
-AX-click that opened the native popover is gone, and with it the app's
-Accessibility/Automation requirement.) The launchd DNS-sync agent under
-`dns-watcher/` is shared with the retired plugin.
+Run the tests with `swift test`.
 
 ### Start at Login
 
-Two ways to launch it automatically (use **one**, not both, or it may start twice):
+Toggle **Start at Login** in the menu, or from the shell:
 
-- **In-app toggle** — the menu's **Start at Login** item registers the app via
-  `SMAppService` (bundle-ID based, not a LaunchAgent). macOS requires the app to
-  live in `/Applications` or `~/Applications`, so point a symlink there first
-  (e.g. `~/Applications/VPN & DNS.app` → `build/VPN & DNS.app`), then toggle it.
-- **macOS Login Items** — add the app under System Settings → General → Login Items
-  ("Open at Login"). Same effect, and it doesn't require the in-app toggle.
+```sh
+"$HOME/Applications/VPN & DNS.app/Contents/MacOS/VPNDNSMenuBar" --login on   # or: off, status
+```
+
+Start at Login uses `SMAppService.mainApp`, which can only register the calling
+process's own bundle, so the command must be the *installed* binary. A bare
+`--login`, or `--login status`, reports the state without changing it. Don't
+also add the app under System Settings ▸ General ▸ Login Items, or it may start
+twice.
+
+## How it works
+
+The app (`VPNDNSMenuBar`) is built on
+[StatusItemKit](https://github.com/nicholaspsmith/StatusItemKit). It polls
+`mullvad` and `tailscale` every 5 s and rebuilds the menu each time it opens.
+It only queries Tailscale while the Tailscale app is running, because the
+Tailscale binary launches the app when it isn't. All output parsing, label
+text, and probe/staleness decisions live in the pure, unit-tested `VPNDNSCore`
+library.
+
+### The DNS watcher
+
+With Tailscale's `accept-dns` (CorpDNS) on, Tailscale's DNS proxy forwards every
+query to a resolver that is unreachable through Mullvad's tunnel, so connecting
+Mullvad breaks all DNS. The watcher, a launchd agent driven by `mullvad status
+listen` (event-driven, no polling), turns `accept-dns` off while Mullvad is
+connected, connecting or blocked, and back on when it disconnects.
+
+While Mullvad is connected the tailnet is unreachable: Mullvad's split tunnel
+cannot exclude Tailscale's system network extension. To reach a tailnet host,
+`mullvad disconnect`, do the thing, then `mullvad connect`.
+
+### Repo layout
+
+| Path | Role |
+|------|------|
+| `Sources/VPNDNSCore/` | Pure logic: status parsing, presentation, fast cities, latency/throughput stores. |
+| `Sources/VPNDNSMenuBar/` | The AppKit app: menu, icon, probes, `--login`. |
+| `Tests/` | Unit tests for `VPNDNSCore`. |
+| `Resources/bundle/candidates.json` | Candidate city pool with seed latencies (`scripts/refresh-candidates.sh`). |
+| `scripts/build-app.sh` | Builds and signs `build/VPN & DNS.app`. |
+| `dns-watcher/mullvad-tailscale-dns-sync.sh` | The DNS watcher. |
+| `dns-watcher/com.nicholassmith.mullvad-tailscale-dns.plist` | LaunchAgent template (`__SCRIPT__` filled in by `install.sh`). |
+| `install.sh` | Builds and links the app, loads the watcher. |
+| `vpn-dns-control.5s.sh`, `assets/` | Fallback SwiftBar plugin and its helper script and images; unused by the app. `./install.sh --swiftbar` wires it. |
 
 ## Uninstall
 
 ```sh
-# app (toggle Start at Login off in the menu first, or remove it from Login Items)
+# app (turn Start at Login off in the menu first)
 pkill -x VPNDNSMenuBar
 rm ~/Applications/"VPN & DNS.app"
 
@@ -262,7 +249,7 @@ launchctl bootout "gui/$(id -u)/com.nicholassmith.mullvad-tailscale-dns"
 rm ~/Library/LaunchAgents/com.nicholassmith.mullvad-tailscale-dns.plist
 tailscale set --accept-dns=true   # restore default
 
-# then re-show the native icons (relaunch the apps, or turn them back on in System Settings ▸ Menu Bar)
+# then re-show the native icons (System Settings ▸ Menu Bar)
 ```
 
 ## Releasing
@@ -273,15 +260,17 @@ Every push to `main` is a release. Before pushing, add a dated
 it). When it reaches `main`, GitHub tags `vX.Y.Z` and publishes the section as
 a release titled `vX.Y.Z`. Without a new version:
 
-- a push is refused locally by the `pre-push` hook;
+- the `pre-push` hook refuses the push;
 - a pull request **cannot merge** — `release / check` is required on `main`;
 - a push that reaches `main` anyway fails the release workflow.
 
 The one exception is `[no release]` in the tip commit's message, for changes
 nothing a user runs (setup, CI, developer docs): it passes every check with no
 version bump and no tag. Never tag or create a release by hand, and never
-`gh pr merge --admin` past a failing check — fix the PR. After merging, `git pull` for the tag and rebuild. `install.sh` re-arms the hook on a fresh clone.
-See [StatusItemKit — Releases](https://github.com/nicholaspsmith/StatusItemKit#releases-every-push-is-one) for the whole rule.
+`gh pr merge --admin` past a failing check — fix the PR. After merging,
+`git pull` for the tag and rebuild. `install.sh` re-arms the hook on a fresh
+clone. See [StatusItemKit — Releases](https://github.com/nicholaspsmith/StatusItemKit#releases-every-push-is-one)
+for the full rule.
 
 ## License
 
@@ -293,29 +282,33 @@ versions of them are made available under the same license.
 
 ## Why not a SwiftBar plugin?
 
-This is a standalone `.app` built on [StatusItemKit](https://github.com/nicholaspsmith/StatusItemKit), not a script under a plugin host: no SwiftBar to install, a real AppKit menu instead of rendered stdout, event-driven updates instead of a re-run timer, and an icon that keeps its place in the bar. The icon follows `mullvad status listen` the moment the tunnel changes instead of polling, and the app needs no Accessibility or Automation grant, which the retired plugin did. The full comparison is in [StatusItemKit's README](https://github.com/nicholaspsmith/StatusItemKit#why-not-swiftbar).
+This is a standalone `.app` built on [StatusItemKit](https://github.com/nicholaspsmith/StatusItemKit), not a script under a plugin host: no SwiftBar to install, a real AppKit menu instead of rendered stdout, a fixed in-process poll instead of re-running a script, and an icon that keeps its place in the bar. It needs no Accessibility or Automation grant. The full comparison is in [StatusItemKit's README](https://github.com/nicholaspsmith/StatusItemKit#why-not-swiftbar).
 
 ## The menu-bar suite
 
 Part of a suite of macOS menu-bar apps that share one framework, one
 build-and-sign script, and one installer. They are designed to sit in the
-same bar together: consistent menus, a common **Icon** picker for shape and
-colour, and cooperative hiding so no icon strands another.
+same bar together: consistent menus, a common **Icon** picker, and cooperative
+hiding so no icon strands another.
 
 | App | What it does |
 |---|---|
 | [Claude Usage](https://github.com/nicholaspsmith/claude-usage-menubar) | Claude Code plan limits, resets, and live agent sessions |
-| [Apollo Monitor](https://github.com/nicholaspsmith/apollo-monitor-menubar) | Apollo audio-interface monitor level, plus a mixer-process watchdog |
+| [Apollo Monitor](https://github.com/nicholaspsmith/apollo-monitor-menubar) | Apollo audio-interface monitor level |
 | [Battery Time](https://github.com/nicholaspsmith/battery-time-menubar) | Time remaining, power mode, and 24h usage |
 | **VPN & DNS** | An iguana for Mullvad + Tailscale state, with a DNS watcher |
-| [Mac Daddy](https://github.com/nicholaspsmith/mac-daddy-menubar) | Kills media trackers, trashes stale downloads, reaps hung processes, and sweats as your process count climbs |
+| [Mac Daddy](https://github.com/nicholaspsmith/mac-daddy-menubar) | Kills media trackers, trashes stale downloads, reaps hung processes, watches the UA mixer engine, and sweats as your process count climbs |
 | [KeyLight](https://github.com/nicholaspsmith/keylight-menubar) | Ctrl+brightness keys remapped to keyboard backlight |
+| [Monitor Lizard](https://github.com/nicholaspsmith/monitor-lizard-menubar) | External-monitor brightness, contrast and resolution, Night Shift, and the built-in screen from dimmer than macOS allows to XDR |
+| [Homestead](https://github.com/nicholaspsmith/home-assistant-menubar) | Home Assistant dashboards and device controls in the menu |
+| [SoundChain](https://github.com/nicholaspsmith/soundchain-menubar) | One chain of Audio Unit effects over all system audio |
+| [Menu Crane](https://github.com/nicholaspsmith/menu-crane) | A ⌘Space launcher for apps, arithmetic, unit conversions and emoji |
 | [MacRecorder](https://github.com/nicholaspsmith/MacRecorder) | Screen recording with system audio |
-| [Barn](https://github.com/nicholaspsmith/menubar-barn) | Sunset: macOS 26 and earlier only. Hid a block of status icons by width; on macOS 27 use System Settings ▸ Menu Bar |
+| [Barn](https://github.com/nicholaspsmith/menubar-barn) | macOS 26 and earlier only: hides a block of status icons by width (on macOS 27, use System Settings ▸ Menu Bar) |
 
 | Framework | |
 |---|---|
-| [StatusItemKit](https://github.com/nicholaspsmith/StatusItemKit) | Status-item lifecycle, polling, menus, meter icons, the shared Icon picker |
+| [StatusItemKit](https://github.com/nicholaspsmith/StatusItemKit) | Status-item lifecycle, polling, menus, meter and mascot icons, the shared Icon picker |
 | [HotkeyKit](https://github.com/nicholaspsmith/HotkeyKit) | CGEventTap engine for intercepting and remapping global keys |
 
 Install the whole suite on a fresh Mac with
