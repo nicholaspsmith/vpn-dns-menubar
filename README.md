@@ -4,12 +4,12 @@
 
 <p align="center">Part of <strong><a href="https://menumon.nicksmith.software">Menumon</a></strong>.</p>
 
-<p align="center"><img src="docs/animation.png" alt="Caveepyan licking: tongue in (left), and unwinding from the branch and wrapping it again (right)"></p>
+<p align="center"><img src="docs/animation.png" alt="Iguanamous licking: tongue in (left), and unwinding from the branch and wrapping it again (right)"></p>
 
 ![The VPN & DNS menu](screenshots/menu.png)
 
 One macOS menu-bar icon that consolidates **Mullvad VPN** and **Tailscale** into a
-single chameleon, with a sectioned dropdown covering both apps — and a small
+single iguana, with a sectioned dropdown covering both apps — and a small
 launchd watcher that keeps DNS working when Mullvad and Tailscale run at once.
 
 The primary deliverable is the standalone **"VPN & DNS.app"** (see
@@ -19,11 +19,11 @@ still in the repo (`vpn-dns-control.5s.sh`, wired only by `./install.sh
 Mullvad/Tailscale menu-bar icons (System Settings ▸ Menu Bar on macOS 27)
 and let this be the only one.
 
-**Version 1.2.0** · [Changelog](https://github.com/nicholaspsmith/vpn-dns-menubar/releases)
+**Version 1.4.0** · [Changelog](https://github.com/nicholaspsmith/vpn-dns-menubar/releases)
 
 ## What you see
 
-The menu bar shows **one icon**: a chameleon.
+The menu bar shows **one icon**: an iguana.
 
 ![The menu-bar icon](docs/menubar-icon.png)
 
@@ -40,10 +40,10 @@ is one thing the animal does, so the icon says all of them at once:
   borrow the dot's colours — orange while connecting or disconnecting, red when
   blocked.
 
-Once a minute Caveepyan, the chameleon, licks. With her tongue in, it shoots
+Once a minute Iguanamous, the iguana, licks. With her tongue in, it shoots
 out and flicks twice at the air. With it wrapped round the branch (Mullvad
 up), it unwinds, reels back into her mouth, then shoots out and wraps the
-branch again. When several Menumon mascots are running they take turns, a second apart: Archimedes (Claude Usage), Menu Pimp (Mac Daddy), Carol (SoundChain), Caveepyan (VPN & DNS), then Armonitor (Monitor Lizard), counting only the ones that are running. Skipped when Reduce Motion is on.
+branch again. When several Menumon mascots are running they take turns, a second apart: Archimedes (Claude Usage), Menu Pimp (Mac Daddy), Carol (SoundChain), Iguanamous (VPN & DNS), then Armonitor (Monitor Lizard), counting only the ones that are running. Skipped when Reduce Motion is on.
 
 Prefer the original dot? **menu ▸ Icon ▸ Dot**.
 
@@ -84,7 +84,7 @@ than being forced into ON/OFF; connecting goes to Mullvad's own persisted relay
 selection (whatever was last chosen via the fast-city submenus or the native
 app). Tailscale's dot is green running · orange starting or needs-login · grey
 otherwise, and its row brings the backend up or down. The MagicDNS row is cyan
-(ON) / grey (OFF) — matching the chameleon's eye — and toggles
+(ON) / grey (OFF) — matching the iguana's eye — and toggles
 `tailscale set --accept-dns`. That toggle is a *temporary override* — the DNS
 watcher (below) re-asserts its mapping on the next Mullvad connect/disconnect.
 
@@ -307,7 +307,7 @@ colour, and cooperative hiding so no icon strands another.
 | [Claude Usage](https://github.com/nicholaspsmith/claude-usage-menubar) | Claude Code plan limits, resets, and live agent sessions |
 | [Apollo Monitor](https://github.com/nicholaspsmith/apollo-monitor-menubar) | Apollo audio-interface monitor level, plus a mixer-process watchdog |
 | [Battery Time](https://github.com/nicholaspsmith/battery-time-menubar) | Time remaining, power mode, and 24h usage |
-| **VPN & DNS** | A chameleon for Mullvad + Tailscale state, with a DNS watcher |
+| **VPN & DNS** | An iguana for Mullvad + Tailscale state, with a DNS watcher |
 | [Mac Daddy](https://github.com/nicholaspsmith/mac-daddy-menubar) | Kills media trackers, trashes stale downloads, reaps hung processes, and sweats as your process count climbs |
 | [KeyLight](https://github.com/nicholaspsmith/keylight-menubar) | Ctrl+brightness keys remapped to keyboard backlight |
 | [MacRecorder](https://github.com/nicholaspsmith/MacRecorder) | Screen recording with system audio |

@@ -75,8 +75,7 @@ public func acceptDNSLabel(_ on: Bool) -> String {
 }
 
 /// Status-dot color for the accept-dns menu row — the same cyan the
-/// chameleon's eye takes, so the row and the glyph say the same thing. Green
-/// was indistinguishable from the body whenever either VPN was up.
+/// iguana's eye takes, so the row and the glyph say the same thing.
 public func acceptDNSDotColor(_ on: Bool) -> DotColor {
     on ? .cyan : .grey
 }
