@@ -13,7 +13,7 @@ A macOS menu-bar app, **"VPN & DNS.app"**, that shows **Mullvad VPN** and
 DNS working while both run at once. Hide the native Mullvad and Tailscale
 menu-bar icons (System Settings ▸ Menu Bar on macOS 27) and use this one.
 
-**Version 1.4.0** · [Changelog](https://github.com/nicholaspsmith/vpn-dns-menubar/releases)
+**Version 1.5.0** · [Changelog](https://github.com/nicholaspsmith/vpn-dns-menubar/releases)
 
 ## What you see
 
@@ -40,8 +40,8 @@ Archimedes (Claude Usage), Menu Pimp (Mac Daddy), Carol (SoundChain), Iguanamous
 (VPN & DNS), then Armonitor (Monitor Lizard), counting only the ones running.
 The animation is skipped when Reduce Motion is on.
 
-**Icon ▸ Dot** swaps the iguana for a single coloured status dot; **Icon ▸
-Iguana** brings her back.
+**Settings ▸ Icon ▸ Dot** swaps the iguana for a single coloured status dot;
+**Settings ▸ Icon ▸ Iguana** brings her back.
 
 ## The menu
 
@@ -55,19 +55,24 @@ Mullvad - Device Name                    ← section header (this Mac's Mullvad 
   Fastest Latin America (No-ID)          ▸
   Fastest Europe (No-ID)                 ▸
   Fastest Asia (No-ID)                   ▸
-  Fastest Lists                          ▸ ranking, which lists show, Measure Throughput Now
+  Throughput                             ▸ Measure Throughput Now, or progress + Cancel
 ──────────────────────────────────────────
 Tailscale                                ← section header
   ●  Connection · ON                     → click brings Tailscale up / down
   ◍  MagicDNS — accept-dns · ON          → click toggles accept-dns
   Open Tailscale App
 ──────────────────────────────────────────
-Icon                                     ▸ Dot / Iguana
-Start at Login
-──────────────────────────────────────────
-Version X.Y.Z
-Quit
+Settings                                 ▸ Fastest Lists ▸ ranking, which lists show
+                                           Icon ▸ Dot / Iguana
+                                           ──────
+                                           Start at Login
+                                           ──────
+                                           Version X.Y.Z
+Quit VPN & DNS                           ⌘Q
 ```
+
+The Settings submenu is StatusItemKit's shared `SettingsMenu`; the app adds
+Fastest Lists and its own Icon picker above Start at Login.
 
 Section headers and informational rows render at full contrast, never the
 disabled grey.
@@ -93,9 +98,9 @@ Non-US. Every city in the pool qualifies under No-ID rules. Clicking a city sets
 the relay location and runs `mullvad connect`; clicking the current city (✓)
 disconnects. A footer shows when latency and throughput were last measured.
 
-**Fastest Lists ▸** picks **Rank by Latency** (default) or **Rank by
-Throughput**, ticks which of the six submenus appear (all by default), and
-starts or cancels a throughput run. Every choice persists.
+**Settings ▸ Fastest Lists ▸** picks **Rank by Latency** (default) or **Rank
+by Throughput** and ticks which of the six submenus appear (all by default).
+Every choice persists. **Throughput ▸** starts or cancels a throughput run.
 
 ### Latency
 
@@ -131,8 +136,8 @@ custom list) and reconnects or disconnects to match the starting state.
 A run moves your traffic between cities and drops long-lived connections, so it
 runs:
 
-- on demand, from **Fastest Lists ▸ Measure Throughput Now** (the row shows
-  progress, e.g. "Fastest Lists · measuring 4/21"); or
+- on demand, from **Throughput ▸ Measure Throughput Now** (the row shows
+  progress, e.g. "Throughput · measuring 4/21"); or
 - automatically **at most once a day**, only when no run has started in the last
   24 hours, Mullvad is disconnected, and there has been no keyboard or mouse
   input for 10 minutes. The 24 hours count from a run's start, so a run where
@@ -189,7 +194,7 @@ Run the tests with `swift test`.
 
 ### Start at Login
 
-Toggle **Start at Login** in the menu, or from the shell:
+Toggle **Settings ▸ Start at Login** in the menu, or from the shell:
 
 ```sh
 "$HOME/Applications/VPN & DNS.app/Contents/MacOS/VPNDNSMenuBar" --login on   # or: off, status
