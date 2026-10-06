@@ -48,7 +48,14 @@ apply() {
 # 1) Sync to whatever state we're in right now (handles launchd start / restart).
 apply "$("$MULLVAD" status 2>/dev/null | /usr/bin/head -1)"
 
-# 2) React to every future state change (event-driven; no polling).
+# 2) React to every future state change (event-driven; no polling). An event
+#    only says "something changed": the state applied is always read fresh from
+#    `mullvad status`. A long-lived `status listen` stream has been seen
+#    replaying stale Connected/Disconnected lines after Mullvad updated under
+#    it, and trusting those lines flapped accept-dns several times a second.
 "$MULLVAD" status listen 2>/dev/null | while IFS= read -r line; do
-  apply "$line"
+  case "$line" in
+    [[:space:]]*) continue ;;   # detail lines
+  esac
+  apply "$("$MULLVAD" status 2>/dev/null | /usr/bin/head -1)"
 done
