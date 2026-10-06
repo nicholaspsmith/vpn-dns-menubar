@@ -8,6 +8,10 @@ without one is refused (`[no release]` in the tip commit is the only exception).
 Versions follow [Semantic Versioning](https://semver.org/). The full rule:
 [StatusItemKit — Releases](https://github.com/nicholaspsmith/StatusItemKit#releases-every-push-is-one).
 
+## [1.5.2] - 2026-10-06
+
+- Ticking a checkbox in the menu no longer closes it: Settings ▸ Fastest Lists' list toggles stay open so you can tick several in a row
+
 ## [1.5.1] - 2026-10-05
 
 - New app icon: Iguanamous as she looks in the menu bar

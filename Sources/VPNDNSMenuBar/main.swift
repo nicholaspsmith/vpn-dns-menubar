@@ -485,11 +485,12 @@ final class App: NSObject, NSApplicationDelegate {
 
         let hidden = HiddenFastLists.current
         for list in FastList.allCases {
-            let item = NSMenuItem(title: list.shortName, action: #selector(toggleFastList(_:)), keyEquivalent: "")
-            item.target = self
-            item.representedObject = list.rawValue
-            item.state = hidden.contains(list) ? .off : .on
-            sub.addItem(item)
+            // Keep-open checkbox: tick several lists without reopening the menu.
+            // The list sections themselves appear or vanish the next time the
+            // menu opens.
+            sub.addItem(ToggleMenuItem.make(title: list.shortName, isOn: !hidden.contains(list)) { [weak self] shown in
+                self?.setFastList(list, shown: shown)
+            })
         }
         root.submenu = sub
         return root
@@ -532,10 +533,9 @@ final class App: NSObject, NSApplicationDelegate {
     @objc private func measureThroughput() { throughput.startRun() }
     @objc private func cancelThroughput() { throughput.cancel() }
 
-    @objc private func toggleFastList(_ sender: NSMenuItem) {
-        guard let raw = sender.representedObject as? String, let list = FastList(rawValue: raw) else { return }
+    private func setFastList(_ list: FastList, shown: Bool) {
         var hidden = HiddenFastLists.current
-        if hidden.contains(list) { hidden.remove(list) } else { hidden.insert(list) }
+        if shown { hidden.remove(list) } else { hidden.insert(list) }
         HiddenFastLists.current = hidden
     }
 

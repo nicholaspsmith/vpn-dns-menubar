@@ -99,7 +99,8 @@ the relay location and runs `mullvad connect`; clicking the current city (✓)
 disconnects. A footer shows when latency and throughput were last measured.
 
 **Settings ▸ Fastest Lists ▸** picks **Rank by Latency** (default) or **Rank
-by Throughput** and ticks which of the six submenus appear (all by default).
+by Throughput** and ticks which of the six submenus appear (all by default;
+ticking leaves the menu open, so several can be changed at once).
 Every choice persists. **Throughput ▸** starts or cancels a throughput run.
 
 ### Latency
