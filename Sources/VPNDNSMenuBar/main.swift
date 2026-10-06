@@ -389,7 +389,7 @@ final class App: NSObject, NSApplicationDelegate {
 
     // Two headed groups: everything Mullvad (status, split tunnel, relay
     // pickers), then everything Tailscale (status, toggle, accept-dns — a
-    // Tailscale pref), then app items.
+    // Tailscale pref), then the shared Settings submenu and Quit.
     private func build(_ menu: NSMenu) {
         addGroupHeader(menu, deviceName.map { "Mullvad - \($0)" } ?? "Mullvad")
 
@@ -405,7 +405,7 @@ final class App: NSObject, NSApplicationDelegate {
         for section in visibleSections(model.sections, hidden: HiddenFastLists.current) {
             menu.addItem(fastCitiesSubmenuItem(section, footers: [model.footer, model.throughputFooter]))
         }
-        menu.addItem(buildFastListsItem())
+        menu.addItem(buildThroughputItem())
 
         menu.addItem(NSMenuItem.separator())
         addGroupHeader(menu, "Tailscale")
@@ -430,25 +430,21 @@ final class App: NSObject, NSApplicationDelegate {
 
         menu.addItem(NSMenuItem.separator())
 
-        let iconHeader = NSMenuItem(title: "Icon", action: nil, keyEquivalent: "")
-        let iconSub = NSMenu()
-        for style in IconStyle.allCases {
-            let item = NSMenuItem(title: style.title, action: #selector(setIconStyle(_:)), keyEquivalent: "")
-            item.target = self
-            item.representedObject = style.rawValue
-            item.state = style == IconStyle.current ? .on : .off
-            iconSub.addItem(item)
-        }
-        iconHeader.submenu = iconSub
-        menu.addItem(iconHeader)
-
-        let login = NSMenuItem(title: "Start at Login", action: #selector(toggleLogin), keyEquivalent: "")
-        login.target = self
-        login.state = LoginItem.isEnabled ? .on : .off
-        menu.addItem(login)
-        menu.addItem(NSMenuItem.separator())
-        menu.addItem(AppVersion.menuItem())
-        menu.addItem(NSMenuItem(title: "Quit", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
+        SettingsMenu.addFooter(to: menu, appName: "VPN & DNS", items: { [self] settings in
+            settings.addItem(buildFastListsSettingsItem())
+            // The dot or the iguana: this app's own picker, not AppearanceMenu.
+            let iconHeader = NSMenuItem(title: "Icon", action: nil, keyEquivalent: "")
+            let iconSub = NSMenu()
+            for style in IconStyle.allCases {
+                let item = NSMenuItem(title: style.title, action: #selector(setIconStyle(_:)), keyEquivalent: "")
+                item.target = self
+                item.representedObject = style.rawValue
+                item.state = style == IconStyle.current ? .on : .off
+                iconSub.addItem(item)
+            }
+            iconHeader.submenu = iconSub
+            settings.addItem(iconHeader)
+        })
     }
 
     // MARK: - Fastest lists show/hide
@@ -471,18 +467,10 @@ final class App: NSObject, NSApplicationDelegate {
         }
     }
 
-    // "Fastest Lists ▸" — rank-mode radio rows, one checkable row per list
-    // (ticked = shown), then the throughput run: a start row, or progress +
-    // Cancel while one is in flight. The top-level title carries the progress
-    // too, so a run is visible without opening the submenu.
-    private func buildFastListsItem() -> NSMenuItem {
-        var title = "Fastest Lists"
-        if case .measuring(let done, let total, _) = throughput.phase {
-            title += " · measuring \(done + 1)/\(total)"
-        } else if throughput.phase == .restoring {
-            title += " · restoring"
-        }
-        let root = NSMenuItem(title: title, action: nil, keyEquivalent: "")
+    // Settings ▸ "Fastest Lists ▸" — rank-mode radio rows, then one checkable
+    // row per list (ticked = shown).
+    private func buildFastListsSettingsItem() -> NSMenuItem {
+        let root = NSMenuItem(title: "Fastest Lists", action: nil, keyEquivalent: "")
         let sub = NSMenu()
 
         let mode = RankModeSetting.current
@@ -503,8 +491,22 @@ final class App: NSObject, NSApplicationDelegate {
             item.state = hidden.contains(list) ? .off : .on
             sub.addItem(item)
         }
-        sub.addItem(NSMenuItem.separator())
+        root.submenu = sub
+        return root
+    }
 
+    // "Throughput ▸" — the throughput run: a start row, or progress + Cancel
+    // while one is in flight. The top-level title carries the progress too, so
+    // a run is visible without opening the submenu.
+    private func buildThroughputItem() -> NSMenuItem {
+        var title = "Throughput"
+        if case .measuring(let done, let total, _) = throughput.phase {
+            title += " · measuring \(done + 1)/\(total)"
+        } else if throughput.phase == .restoring {
+            title += " · restoring"
+        }
+        let root = NSMenuItem(title: title, action: nil, keyEquivalent: "")
+        let sub = NSMenu()
         switch throughput.phase {
         case .idle:
             let run = NSMenuItem(title: "Measure Throughput Now", action: #selector(measureThroughput), keyEquivalent: "")
@@ -664,7 +666,6 @@ final class App: NSObject, NSApplicationDelegate {
         }
     }
 
-    @objc private func toggleLogin() { LoginItem.toggle() }
 }
 
 // Handle `--login on|off|status` and exit before any UI exists. Start at Login is
