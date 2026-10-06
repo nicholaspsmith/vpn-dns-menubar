@@ -1,6 +1,6 @@
 # vpn-dns-menubar
 
-<p align="center"><img src="docs/mascot.png" width="160" alt="VPN & DNS mascot, from Menumon"></p>
+<p align="center"><img src="docs/mascot.png" width="160" alt="Iguanamous, VPN &amp; DNS's menu-bar character, on its app icon"></p>
 
 <p align="center">Part of <strong><a href="https://menumon.nicksmith.software">Menumon</a></strong>.</p>
 
