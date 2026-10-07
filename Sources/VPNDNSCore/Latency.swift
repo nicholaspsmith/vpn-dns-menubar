@@ -165,13 +165,6 @@ public final class LatencyStore {
     }
 }
 
-/// True when there is no direct measurement yet, or the newest one is older
-/// than `maxAge`. Exactly `maxAge` old still counts as fresh.
-public func isLatencyStale(last: Date?, now: Date, maxAge: TimeInterval) -> Bool {
-    guard let last = last else { return true }
-    return now.timeIntervalSince(last) > maxAge
-}
-
 /// How (whether) to probe right now.
 public enum ProbeDecision: Equatable {
     case probeDirect            // Mullvad off: plain pings are direct
@@ -179,11 +172,9 @@ public enum ProbeDecision: Equatable {
     case skip
 }
 
-/// Fresh data never probes. Stale + connected probes only via split-tunnel
-/// exclusion, and only when the user already has split tunneling on — the
-/// probe never flips that state itself.
-public func probeDecision(stale: Bool, mullvadOff: Bool, splitTunnelOn: Bool) -> ProbeDecision {
-    guard stale else { return .skip }
+/// Connected probes only via split-tunnel exclusion, and only when the user
+/// already has split tunneling on — the probe never flips that state itself.
+public func probeDecision(mullvadOff: Bool, splitTunnelOn: Bool) -> ProbeDecision {
     if mullvadOff { return .probeDirect }
     return splitTunnelOn ? .probeViaSplitTunnel : .skip
 }

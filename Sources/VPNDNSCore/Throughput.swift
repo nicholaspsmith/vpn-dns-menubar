@@ -54,22 +54,6 @@ public func transferBytes(afterProbeMbps mbps: Double, targetSeconds: Double,
     return min(maxBytes, max(minBytes, Int(wanted)))
 }
 
-/// The automatic run fires at most once per this interval, counted from the
-/// last run that *started* (automatic or manual) — not the last one that
-/// recorded a result, so a run where every city fails (an expired account,
-/// say) still waits a full day before trying again.
-public let throughputAutoInterval: TimeInterval = 86400
-
-/// The automatic run is intrusive (it tunnels through every candidate), so it
-/// needs all three: no run started within `throughputAutoInterval`, Mullvad
-/// already off, and the user away from the keyboard for at least `minIdle`
-/// seconds.
-public func shouldAutoMeasureThroughput(lastRun: Date?, now: Date, mullvadOff: Bool,
-                                        idleSeconds: TimeInterval, minIdle: TimeInterval) -> Bool {
-    isLatencyStale(last: lastRun, now: now, maxAge: throughputAutoInterval)
-        && mullvadOff && idleSeconds >= minIdle
-}
-
 /// Menu row shown while a run is in progress. `done` is the number of cities
 /// already finished; `city` is the one being measured now.
 public func throughputProgressTitle(done: Int, total: Int, city: String) -> String {
