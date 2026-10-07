@@ -8,6 +8,10 @@ without one is refused (`[no release]` in the tip commit is the only exception).
 Versions follow [Semantic Versioning](https://semver.org/). The full rule:
 [StatusItemKit — Releases](https://github.com/nicholaspsmith/StatusItemKit#releases-every-push-is-one).
 
+## [1.7.0] - 2026-10-07
+
+- No user-visible changes.
+
 ## [1.6.0] - 2026-10-07
 
 - Latency and throughput are now measured only when you ask: a new **Measure** submenu holds Measure Latency Now and Measure Throughput Now. The app no longer pings relays on its own (every 12 hours, at launch, or when Mullvad turned off) and no longer runs the daily throughput test that hopped your connection between cities while you were away
