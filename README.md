@@ -13,7 +13,7 @@ A macOS menu-bar app, **"VPN & DNS.app"**, that shows **Mullvad VPN** and
 DNS working while both run at once. Hide the native Mullvad and Tailscale
 menu-bar icons (System Settings ▸ Menu Bar on macOS 27) and use this one.
 
-**Version 1.6.0** · [Changelog](https://github.com/nicholaspsmith/vpn-dns-menubar/releases)
+**Version 1.7.1** · [Changelog](https://github.com/nicholaspsmith/vpn-dns-menubar/releases)
 
 ## What you see
 

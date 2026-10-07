@@ -298,7 +298,6 @@ final class App: NSObject, NSApplicationDelegate {
                 : nil
             DispatchQueue.main.async {
                 self.pollInFlight = false
-                let previous = self.mullvad.state
                 self.mullvad = mv
                 self.backend = be
                 self.corpDNS = dns
