@@ -8,6 +8,10 @@ without one is refused (`[no release]` in the tip commit is the only exception).
 Versions follow [Semantic Versioning](https://semver.org/). The full rule:
 [StatusItemKit — Releases](https://github.com/nicholaspsmith/StatusItemKit#releases-every-push-is-one).
 
+## [1.5.4] - 2026-10-07
+
+- The app icon matches Iguanamous as he is now drawn in the menu bar
+
 ## [1.5.3] - 2026-10-06
 
 - The DNS watcher no longer flips Tailscale's DNS on and off several times a second: on each Mullvad event it reads Mullvad's current state instead of trusting the event, so `*.ts.net` names keep resolving while Mullvad is disconnected
