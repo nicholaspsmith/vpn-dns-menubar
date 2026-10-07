@@ -62,6 +62,13 @@ private func dotImage(_ color: NSColor, diameter: CGFloat = 10) -> NSImage {
 /// Non-clickable info row at full contrast: reads like content, never
 /// highlights, takes no click. (An explicit attributedTitle overrides
 /// AppKit's faint disabled-gray rendering.)
+/// A greyed-out row: an action that can't run right now, or why.
+private func disabledItem(_ title: String) -> NSMenuItem {
+    let item = NSMenuItem(title: title, action: nil, keyEquivalent: "")
+    item.isEnabled = false
+    return item
+}
+
 private func infoItem(_ title: String) -> NSMenuItem {
     let item = NSMenuItem(title: title, action: nil, keyEquivalent: "")
     item.isEnabled = false
@@ -72,8 +79,8 @@ private func infoItem(_ title: String) -> NSMenuItem {
     return item
 }
 
-/// Pings candidate relays and records direct latency, at most every ~12 h
-/// (the staleness ceiling). Two probe modes, chosen by `probeDecision`:
+/// Pings candidate relays and records direct latency, only when the user
+/// picks Measure ▸ Measure Latency Now. Two probe modes, chosen by `probeDecision`:
 /// Mullvad off → plain pings are direct; Mullvad connected → only if the
 /// user already has split tunneling on, by temporarily excluding
 /// `/sbin/ping` from the tunnel (never flipping split-tunnel state itself).
@@ -85,9 +92,7 @@ final class LatencyProbe {
     private let onUpdate: () -> Void
     private let queue = DispatchQueue(label: "vpndns.latency", attributes: .concurrent)
     private let gate = DispatchSemaphore(value: 8)   // max concurrent pings
-    private var timer: Timer?
-    private var running = false
-    static let maxAge: TimeInterval = 12 * 3600
+    private(set) var isRunning = false
 
     init(store: LatencyStore, isOff: @escaping () -> Bool,
          splitTunnelOn: @escaping () -> Bool, onUpdate: @escaping () -> Void) {
@@ -97,35 +102,32 @@ final class LatencyProbe {
         self.onUpdate = onUpdate
     }
 
-    func start(interval: TimeInterval) {
-        timer = Timer.scheduledTimer(withTimeInterval: interval, repeats: true) { [weak self] _ in
-            self?.probeIfNeeded()
-        }
-        probeIfNeeded()
-    }
+    /// Whether a trustworthy probe is possible right now (main thread).
+    var canMeasure: Bool { probeDecision(mullvadOff: isOff(), splitTunnelOn: splitTunnelOn()) != .skip }
 
-    /// Main thread. Probe iff the newest direct measurement is missing or
-    /// older than 12 h, and the current state permits a trustworthy probe.
-    func probeIfNeeded() {
-        guard !running else { return }
-        let stale = isLatencyStale(last: store.lastDirectMeasurement, now: Date(), maxAge: Self.maxAge)
-        switch probeDecision(stale: stale, mullvadOff: isOff(), splitTunnelOn: splitTunnelOn()) {
+    /// Main thread. The only trigger: the user's menu pick. Probes if the
+    /// current state permits a trustworthy probe; no-op while one runs.
+    func measureNow() {
+        guard !isRunning else { return }
+        switch probeDecision(mullvadOff: isOff(), splitTunnelOn: splitTunnelOn()) {
         case .skip:
             return
         case .probeDirect:
-            running = true
+            isRunning = true
+            onUpdate()
             queue.async { [weak self] in self?.runProbe(viaSplitTunnel: false) }
         case .probeViaSplitTunnel:
-            running = true
+            isRunning = true
+            onUpdate()
             queue.async { [weak self] in self?.runProbe(viaSplitTunnel: true) }
         }
     }
 
     private func runProbe(viaSplitTunnel: Bool) {
-        defer { DispatchQueue.main.async { [weak self] in self?.running = false } }
+        defer { DispatchQueue.main.async { [weak self] in self?.isRunning = false; self?.onUpdate() } }
 
         if viaSplitTunnel {
-            // add + verify; on any doubt, clean up and bail (retry next tick).
+            // add + verify; on any doubt, clean up and bail.
             _ = Shell.run(MULLVAD, ["split-tunnel", "app", "add", probePingPath])
             let st = parseSplitTunnel(Shell.run(MULLVAD, ["split-tunnel", "get"]) ?? "")
             guard st.enabled, st.apps.contains(probePingPath) else {
@@ -194,7 +196,6 @@ final class App: NSObject, NSApplicationDelegate {
     private var mullvadIsOff = false   // guarded by mullvadStateLock; read by probe off-main
     private let pollQueue = DispatchQueue(label: "vpndns.poll")
     private var pollInFlight = false   // main-thread only; drops overlapping polls
-    private var firstPollCommitted = false   // main-thread; gates the launch-time probe check
 
     override init() {
         let pool: CandidatePool
@@ -235,13 +236,10 @@ final class App: NSObject, NSApplicationDelegate {
                 defer { self.mullvadStateLock.unlock() }
                 return self.mullvadIsOff
             },
-            // Main-thread read: probeIfNeeded only ever runs on the main thread.
+            // Main-thread read: measureNow and canMeasure only run on the main thread.
             splitTunnelOn: { [weak self] in self?.splitTunnel.enabled ?? false },
-            // no-op: StatusItemController rebuilds the menu on each open, so fresh
-            // latencies appear next time the menu is opened.
-            onUpdate: { }
+            onUpdate: { [weak self] in self?.poll() }
         )
-        probe.start(interval: 15 * 60)
         throughput = ThroughputProbe(
             store: store,
             mullvad: MULLVAD,
@@ -253,7 +251,6 @@ final class App: NSObject, NSApplicationDelegate {
             },
             onUpdate: { [weak self] in self?.poll() }
         )
-        throughput.start(interval: 15 * 60)
         // Crash backstop: a probe killed mid-run can leave /sbin/ping in the
         // split-tunnel exclusions; never let that linger across launches.
         DispatchQueue.global().async {
@@ -312,15 +309,6 @@ final class App: NSObject, NSApplicationDelegate {
                 self.mullvadStateLock.lock()
                 self.mullvadIsOff = (mv.state == .off)
                 self.mullvadStateLock.unlock()
-                let measuring = self.throughput?.isRunning ?? false
-                if previous != .off && mv.state == .off && !measuring { self.probe?.probeIfNeeded() }
-                // The evaluation in start() ran before any poll had committed real
-                // state (mullvadIsOff/splitTunnel still init defaults → skip), so
-                // re-evaluate once the first real state lands.
-                if !self.firstPollCommitted {
-                    self.firstPollCommitted = true
-                    self.probe?.probeIfNeeded()
-                }
                 self.lastIconColor = nsColor(dotColor(mullvad: mv.state, tailscaleRunning: be == "Running"))
                 self.lastTail = be == "Running"
                 self.lastTongue = mv.state == .connected
@@ -405,7 +393,7 @@ final class App: NSObject, NSApplicationDelegate {
         for section in visibleSections(model.sections, hidden: HiddenFastLists.current) {
             menu.addItem(fastCitiesSubmenuItem(section, footers: [model.footer, model.throughputFooter]))
         }
-        menu.addItem(buildThroughputItem())
+        menu.addItem(buildMeasureItem())
 
         menu.addItem(NSMenuItem.separator())
         addGroupHeader(menu, "Tailscale")
@@ -496,23 +484,44 @@ final class App: NSObject, NSApplicationDelegate {
         return root
     }
 
-    // "Throughput ▸" — the throughput run: a start row, or progress + Cancel
-    // while one is in flight. The top-level title carries the progress too, so
-    // a run is visible without opening the submenu.
-    private func buildThroughputItem() -> NSMenuItem {
-        var title = "Throughput"
+    // "Measure ▸" — the only way latency or throughput is ever measured: a
+    // start row for each, or progress (+ Cancel for throughput) while one is in
+    // flight. The top-level title carries the progress too, so a run is visible
+    // without opening the submenu.
+    private func buildMeasureItem() -> NSMenuItem {
+        var title = "Measure"
         if case .measuring(let done, let total, _) = throughput.phase {
-            title += " · measuring \(done + 1)/\(total)"
+            title += " · throughput \(done + 1)/\(total)"
         } else if throughput.phase == .restoring {
             title += " · restoring"
+        } else if probe.isRunning {
+            title += " · latency"
         }
         let root = NSMenuItem(title: title, action: nil, keyEquivalent: "")
         let sub = NSMenu()
-        switch throughput.phase {
-        case .idle:
-            let run = NSMenuItem(title: "Measure Throughput Now", action: #selector(measureThroughput), keyEquivalent: "")
+        if probe.isRunning {
+            sub.addItem(infoItem("Measuring latency…"))
+        } else if throughput.isRunning {
+            // A throughput run is hopping relays; pings now would not be direct.
+            sub.addItem(disabledItem("Measure Latency Now"))
+        } else if probe.canMeasure {
+            let run = NSMenuItem(title: "Measure Latency Now", action: #selector(measureLatency), keyEquivalent: "")
             run.target = self
             sub.addItem(run)
+        } else {
+            // Connected with split tunnelling off: a ping would time the tunnel.
+            sub.addItem(disabledItem("Measure Latency Now"))
+            sub.addItem(disabledItem("Disconnect Mullvad or turn on Split Tunnel"))
+        }
+        switch throughput.phase {
+        case .idle:
+            if probe.isRunning {
+                sub.addItem(disabledItem("Measure Throughput Now"))
+            } else {
+                let run = NSMenuItem(title: "Measure Throughput Now", action: #selector(measureThroughput), keyEquivalent: "")
+                run.target = self
+                sub.addItem(run)
+            }
         case .measuring(let done, let total, let city):
             sub.addItem(infoItem(throughputProgressTitle(done: done, total: total, city: city)))
             let cancel = NSMenuItem(title: "Cancel", action: #selector(cancelThroughput), keyEquivalent: "")
@@ -530,6 +539,7 @@ final class App: NSObject, NSApplicationDelegate {
         RankModeSetting.current = mode
     }
 
+    @objc private func measureLatency() { probe.measureNow() }
     @objc private func measureThroughput() { throughput.startRun() }
     @objc private func cancelThroughput() { throughput.cancel() }
 

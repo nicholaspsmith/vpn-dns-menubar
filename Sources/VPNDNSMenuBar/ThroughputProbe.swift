@@ -13,10 +13,8 @@ import VPNDNSCore
 /// tunnel to land on that city, then time a download from and an upload to
 /// Cloudflare's speed-test endpoints — a small probe transfer first, then one
 /// sized to run about five seconds at the probed rate (capped at Cloudflare's
-/// 90 MB per-request limit). Deliberately intrusive, so it runs
-/// on demand from the menu or automatically at most once a day
-/// (`throughputAutoInterval` since the last run started), only while Mullvad
-/// is off and the user has been idle.
+/// 90 MB per-request limit). Deliberately intrusive, so it only ever runs
+/// when the user picks Measure ▸ Measure Throughput Now.
 /// When it finishes (or is cancelled) it restores the original relay
 /// constraint and connected/off state. All state below is main-thread-only
 /// except where noted.
@@ -34,11 +32,8 @@ final class ThroughputProbe {
     private let queue = DispatchQueue(label: "vpndns.throughput")
     private let cancelLock = NSLock()
     private var cancelRequested = false   // guarded by cancelLock
-    private var timer: Timer?
     private(set) var phase: Phase = .idle
 
-    static let minIdle: TimeInterval = 10 * 60
-    static let lastRunKey = "throughputLastRunStarted"
     static let downloadURL = "https://speed.cloudflare.com/__down"
     static let uploadURL = "https://speed.cloudflare.com/__up"
     static let probeBytes = 10_000_000
@@ -57,30 +52,12 @@ final class ThroughputProbe {
 
     var isRunning: Bool { phase != .idle }
 
-    /// Checks the automatic trigger every `interval` seconds.
-    func start(interval: TimeInterval) {
-        timer = Timer.scheduledTimer(withTimeInterval: interval, repeats: true) { [weak self] _ in
-            self?.autoRunIfNeeded()
-        }
-    }
-
-    func autoRunIfNeeded() {
-        guard !isRunning else { return }
-        let lastRun = UserDefaults.standard.object(forKey: Self.lastRunKey) as? Date
-        let idle = CGEventSource.secondsSinceLastEventType(.combinedSessionState,
-                                                           eventType: CGEventType(rawValue: ~0)!)
-        guard shouldAutoMeasureThroughput(lastRun: lastRun, now: Date(), mullvadOff: isOff(),
-                                          idleSeconds: idle, minIdle: Self.minIdle) else { return }
-        startRun()
-    }
-
-    /// Manual trigger. No-op while a run is in progress.
+    /// The only trigger: the user's menu pick. No-op while a run is in progress.
     func startRun() {
         guard !isRunning else { return }
         cancelLock.lock(); cancelRequested = false; cancelLock.unlock()
         let relays = store.pool.us + store.pool.nonus
         guard let first = relays.first else { return }
-        UserDefaults.standard.set(Date(), forKey: Self.lastRunKey)
         phase = .measuring(done: 0, total: relays.count, city: first.city)
         queue.async { [weak self] in self?.run(relays) }
     }

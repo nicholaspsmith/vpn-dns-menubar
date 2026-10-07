@@ -13,7 +13,7 @@ A macOS menu-bar app, **"VPN & DNS.app"**, that shows **Mullvad VPN** and
 DNS working while both run at once. Hide the native Mullvad and Tailscale
 menu-bar icons (System Settings ▸ Menu Bar on macOS 27) and use this one.
 
-**Version 1.5.4** · [Changelog](https://github.com/nicholaspsmith/vpn-dns-menubar/releases)
+**Version 1.6.0** · [Changelog](https://github.com/nicholaspsmith/vpn-dns-menubar/releases)
 
 ## What you see
 
@@ -101,21 +101,22 @@ disconnects. A footer shows when latency and throughput were last measured.
 **Settings ▸ Fastest Lists ▸** picks **Rank by Latency** (default) or **Rank
 by Throughput** and ticks which of the six submenus appear (all by default;
 ticking leaves the menu open, so several can be changed at once).
-Every choice persists. **Throughput ▸** starts or cancels a throughput run.
+Every choice persists. **Measure ▸** starts a latency measurement, or starts
+or cancels a throughput run. Nothing is ever measured unless you pick one of
+these.
 
 ### Latency
 
-Latency is measured with direct ICMP pings (`/sbin/ping`) when the newest
-measurement is more than **12 hours** old, checked every 15 minutes and whenever
-Mullvad turns off.
+Latency is measured with direct ICMP pings (`/sbin/ping`), only when you pick
+**Measure ▸ Measure Latency Now**.
 
-- Normally it runs while Mullvad is disconnected.
+- With Mullvad disconnected the pings go out directly.
 - If Mullvad is connected and split tunnelling is already on, the app adds
   `/sbin/ping` to the split-tunnel exclusions, verifies the exclusion took,
   pings, then removes it. The transient exclusion is hidden from the Split
   Tunnel submenu, and a startup sweep removes it if a crash left it behind.
 - It never turns split tunnelling on or off itself; connected with split
-  tunnelling off, it waits for the next disconnected window.
+  tunnelling off, the row is greyed out with a note saying why.
 
 Until the first live measurement completes, the app uses seed values from
 `Resources/bundle/candidates.json`. Results persist in
@@ -135,14 +136,8 @@ it restores the relay constraint it found (`mullvad relay get`, including a
 custom list) and reconnects or disconnects to match the starting state.
 
 A run moves your traffic between cities and drops long-lived connections, so it
-runs:
-
-- on demand, from **Throughput ▸ Measure Throughput Now** (the row shows
-  progress, e.g. "Throughput · measuring 4/21"); or
-- automatically **at most once a day**, only when no run has started in the last
-  24 hours, Mullvad is disconnected, and there has been no keyboard or mouse
-  input for 10 minutes. The 24 hours count from a run's start, so a run where
-  every city fails (an expired account, say) does not retry until the next day.
+only runs when you pick **Measure ▸ Measure Throughput Now** (the row shows
+progress, e.g. "Measure · throughput 4/21"). It never starts on its own.
 
 A run that has started always completes. In throughput mode rows read
 `Chicago, IL — ↓ 412 ↑ 88 Mbps`, sorted by download; untested cities sort last

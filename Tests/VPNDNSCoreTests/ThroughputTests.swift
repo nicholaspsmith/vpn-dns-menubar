@@ -174,27 +174,6 @@ final class RelayLocationParseTests: XCTestCase {
     }
 }
 
-final class ThroughputPolicyTests: XCTestCase {
-    let now = Date(timeIntervalSinceReferenceDate: 800_000_000)
-    func testAutoRunsOnlyWhenDueOffAndIdle() {
-        let dayAgo = now.addingTimeInterval(-86401)
-        XCTAssertTrue(shouldAutoMeasureThroughput(lastRun: dayAgo, now: now, mullvadOff: true, idleSeconds: 600, minIdle: 600))
-        XCTAssertTrue(shouldAutoMeasureThroughput(lastRun: nil, now: now, mullvadOff: true, idleSeconds: 600, minIdle: 600))
-        XCTAssertFalse(shouldAutoMeasureThroughput(lastRun: dayAgo, now: now, mullvadOff: false, idleSeconds: 600, minIdle: 600))
-        XCTAssertFalse(shouldAutoMeasureThroughput(lastRun: dayAgo, now: now, mullvadOff: true, idleSeconds: 599, minIdle: 600))
-    }
-    func testWaitsADaySinceTheLastRunStarted() {
-        // A run 15 minutes ago — even one that recorded nothing — blocks the next.
-        XCTAssertFalse(shouldAutoMeasureThroughput(lastRun: now.addingTimeInterval(-15 * 60), now: now,
-                                                   mullvadOff: true, idleSeconds: 3600, minIdle: 600))
-        XCTAssertFalse(shouldAutoMeasureThroughput(lastRun: now.addingTimeInterval(-86400), now: now,
-                                                   mullvadOff: true, idleSeconds: 3600, minIdle: 600))
-    }
-    func testAutoIntervalIsOneDay() {
-        XCTAssertEqual(throughputAutoInterval, 86400)
-    }
-}
-
 final class ThroughputRestoreTests: XCTestCase {
     func testRestoresLocationThenReconnectsWhenItWasConnected() {
         XCTAssertEqual(throughputRestoreCommands(location: .city(cc: "mx", city: "qro"), wasConnected: true),
