@@ -13,7 +13,7 @@ A macOS menu-bar app, **"VPN & DNS.app"**, that shows **Mullvad VPN** and
 DNS working while both run at once. Hide the native Mullvad and Tailscale
 menu-bar icons (System Settings ▸ Menu Bar on macOS 27) and use this one.
 
-**Version 1.5.0** · [Changelog](https://github.com/nicholaspsmith/vpn-dns-menubar/releases)
+**Version 1.5.4** · [Changelog](https://github.com/nicholaspsmith/vpn-dns-menubar/releases)
 
 ## What you see
 
@@ -302,6 +302,7 @@ hiding so no icon strands another.
 | [KeyLight](https://github.com/nicholaspsmith/keylight-menubar) | Ctrl+brightness keys remapped to keyboard backlight |
 | [Monitor Lizard](https://github.com/nicholaspsmith/monitor-lizard-menubar) | External-monitor brightness, contrast and resolution, Night Shift, and the built-in screen from dimmer than macOS allows to XDR |
 | [Homestead](https://github.com/nicholaspsmith/home-assistant-menubar) | Home Assistant dashboards and device controls in the menu |
+| [Panes](https://github.com/nicholaspsmith/panes-menubar) | Window tiling on ⌘⌥ shortcuts, a grid in the menu, and drag-to-edge snapping |
 | [SoundChain](https://github.com/nicholaspsmith/soundchain-menubar) | One chain of Audio Unit effects over all system audio |
 | [Menu Crane](https://github.com/nicholaspsmith/menu-crane) | A ⌘Space launcher for apps, arithmetic, unit conversions and emoji |
 | [MacRecorder](https://github.com/nicholaspsmith/MacRecorder) | Screen recording with system audio |
