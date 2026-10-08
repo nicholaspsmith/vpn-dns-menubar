@@ -8,6 +8,10 @@ without one is refused (`[no release]` in the tip commit is the only exception).
 Versions follow [Semantic Versioning](https://semver.org/). The full rule:
 [StatusItemKit — Releases](https://github.com/nicholaspsmith/StatusItemKit#releases-every-push-is-one).
 
+## [1.8.0] - 2026-10-08
+
+- No user-visible changes.
+
 ## [1.7.1] - 2026-10-07
 
 - No visible change: removes code left unused when automatic measuring was taken out in 1.6.0
