@@ -8,6 +8,10 @@ without one is refused (`[no release]` in the tip commit is the only exception).
 Versions follow [Semantic Versioning](https://semver.org/). The full rule:
 [StatusItemKit — Releases](https://github.com/nicholaspsmith/StatusItemKit#releases-every-push-is-one).
 
+## [1.11.0] - 2026-10-15
+
+- Carol's animation in the menu bar is smoother and no longer clips the top of her headband.
+
 ## [1.10.0] - 2026-10-15
 
 - The caterpillar icon in the menu bar now supports a walking animation, which moves more slowly and differently from its previous running motion.
