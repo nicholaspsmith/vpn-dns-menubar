@@ -10,7 +10,7 @@ Versions follow [Semantic Versioning](https://semver.org/). The full rule:
 
 ## [1.11.0] - 2026-10-15
 
-- No user-facing changes.
+- Carol's animation in the menu bar is smoother and no longer clips the top of her headband.
 
 ## [1.10.0] - 2026-10-15
 
