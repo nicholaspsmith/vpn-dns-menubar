@@ -40,8 +40,8 @@ Archimedes (Claude Usage), Menu Pimp (Mac Daddy), Carol (SoundChain), Iguanamous
 (VPN & DNS), then Armonitor (Monitor Lizard), counting only the ones running.
 The animation is skipped when Reduce Motion is on.
 
-**Settings ▸ Icon ▸ Dot** swaps the iguana for a single coloured status dot;
-**Settings ▸ Icon ▸ Iguana** brings her back.
+**Icon ▸ Dot** swaps the iguana for a single coloured status dot;
+**Icon ▸ Iguana** brings her back.
 
 ## The menu
 
@@ -63,16 +63,17 @@ Tailscale                                ← section header
   Open Tailscale App
 ──────────────────────────────────────────
 Settings                                 ▸ Fastest Lists ▸ ranking, which lists show
-                                           Icon ▸ Dot / Iguana
                                            ──────
                                            Start at Login
                                            ──────
                                            Version X.Y.Z
+Icon                                     ▸ Dot / Iguana
 Quit VPN & DNS                           ⌘Q
 ```
 
 The Settings submenu is StatusItemKit's shared `SettingsMenu`; the app adds
-Fastest Lists and its own Icon picker above Start at Login.
+Fastest Lists above Start at Login, and its own Icon picker right below
+Settings in the main menu.
 
 Section headers and informational rows render at full contrast, never the
 disabled grey.
