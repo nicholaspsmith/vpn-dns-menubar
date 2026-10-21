@@ -419,7 +419,9 @@ final class App: NSObject, NSApplicationDelegate {
 
         SettingsMenu.addFooter(to: menu, appName: "VPN & DNS", items: { [self] settings in
             settings.addItem(buildFastListsSettingsItem())
-            // The dot or the iguana: this app's own picker, not AppearanceMenu.
+        }, belowSettings: { [self] menu in
+            // The dot or the iguana: this app's own picker, not AppearanceMenu,
+            // in the main menu right below Settings.
             let iconHeader = NSMenuItem(title: "Icon", action: nil, keyEquivalent: "")
             let iconSub = NSMenu()
             for style in IconStyle.allCases {
@@ -430,7 +432,7 @@ final class App: NSObject, NSApplicationDelegate {
                 iconSub.addItem(item)
             }
             iconHeader.submenu = iconSub
-            settings.addItem(iconHeader)
+            menu.addItem(iconHeader)
         })
     }
 
