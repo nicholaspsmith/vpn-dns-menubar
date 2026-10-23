@@ -63,10 +63,31 @@ private func stateWord(_ state: MullvadState) -> String {
     }
 }
 
+/// The place in `mullvad status`'s "Visible location", the way a person would
+/// say it: "Colombia, Bogota. IPv4: …" → "Bogota, Colombia". The city keeps
+/// Mullvad's spelling, so a US relay keeps its state: "New York, NY, USA".
+/// The IPs follow ". IPv4:" or, with no IPv4, ", IPv6:".
+public func placeName(fromVisibleLocation raw: String) -> String? {
+    let place = raw.range(of: " IPv").map { String(raw[..<$0.lowerBound]) } ?? raw
+    let trimmed = place.trimmingCharacters(in: CharacterSet(charactersIn: " .,"))
+    guard !trimmed.isEmpty else { return nil }
+    guard let comma = trimmed.range(of: ", ") else { return trimmed }
+    return "\(trimmed[comma.upperBound...]), \(trimmed[..<comma.lowerBound])"
+}
+
 public func mullvadRowLabel(_ s: MullvadStatus) -> String {
-    // Connected: the relay is the useful detail. Otherwise the location, which
-    // is where it would connect back to.
-    let detail = s.state == .connected ? (s.relay ?? s.location) : s.location
+    // Connected: the place by name, with the relay that serves it. Otherwise
+    // the location, which is where it would connect back to.
+    let detail: String?
+    if s.state == .connected {
+        let place = s.location.flatMap(placeName(fromVisibleLocation:))
+        switch (place, s.relay) {
+        case let (place?, relay?): detail = "\(place) (\(relay))"
+        default: detail = place ?? s.relay
+        }
+    } else {
+        detail = s.location
+    }
     return statusRowLabel(name: "Connection", detail: detail, state: stateWord(s.state))
 }
 

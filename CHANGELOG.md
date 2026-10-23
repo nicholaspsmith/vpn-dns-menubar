@@ -8,6 +8,12 @@ without one is refused (`[no release]` in the tip commit is the only exception).
 Versions follow [Semantic Versioning](https://semver.org/). The full rule:
 [StatusItemKit — Releases](https://github.com/nicholaspsmith/StatusItemKit#releases-every-push-is-one).
 
+## [1.16.0] - 2026-10-22
+
+### Added
+
+- While Mullvad is connected, its Connection row names the place as well as the relay: `Connection — Bogota, Colombia (co-bog-wg-002) · ON`, or `New York, NY, USA (us-nyc-wg-001)` for a US relay. The name comes from the visible location `mullvad status` already reports, so nothing extra is looked up.
+
 ## [1.15.0] - 2026-10-20
 
 ### Changed

@@ -13,7 +13,7 @@ A macOS menu-bar app, **"VPN & DNS.app"**, that shows **Mullvad VPN** and
 DNS working while both run at once. Hide the native Mullvad and Tailscale
 menu-bar icons (System Settings ▸ Menu Bar on macOS 27) and use this one.
 
-**Version 1.14.1** · [Changelog](https://github.com/nicholaspsmith/vpn-dns-menubar/releases)
+**Version 1.16.0** · [Changelog](https://github.com/nicholaspsmith/vpn-dns-menubar/releases)
 
 ## What you see
 
@@ -47,7 +47,7 @@ The animation is skipped when Reduce Motion is on.
 
 ```
 Mullvad - Device Name                    ← section header (this Mac's Mullvad device)
-  ●  Connection — City, ST · ON          → click connects / disconnects
+  ●  Connection — City, ST, USA (relay) · ON  → click connects / disconnects
   Split Tunnel: On                       ▸ toggle, excluded apps, Add App…
   Fastest US (No-ID)                     ▸ top-5 cities, ✓ = current
   Fastest Non-US (No-ID · torrent-safe)  ▸

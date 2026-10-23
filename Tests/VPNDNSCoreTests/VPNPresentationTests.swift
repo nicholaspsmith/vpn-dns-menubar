@@ -26,10 +26,39 @@ final class VPNPresentationTests: XCTestCase {
         XCTAssertEqual(statusRowLabel(name: "Connection", detail: "", state: "ON"), "Connection · ON")
     }
 
+    // `mullvad status` prints the visible location country first, then the
+    // relay's city in Mullvad's own spelling ("New York, NY"), then the IPs.
+    // The menu wants the place a person would say: city first, no IPs.
+    func testPlaceNameFromVisibleLocation() {
+        XCTAssertEqual(placeName(fromVisibleLocation: "Colombia, Bogota. IPv4: 154.47.16.56"), "Bogota, Colombia")
+        XCTAssertEqual(placeName(fromVisibleLocation: "USA, New York, NY. IPv4: 1.2.3.4"), "New York, NY, USA")
+        XCTAssertEqual(placeName(fromVisibleLocation: "Australia, Perth. IPv4: 1.2.3.4"), "Perth, Australia")
+        XCTAssertEqual(placeName(fromVisibleLocation: "USA, Boston, MA. IPv4: 1.2.3.4, IPv6: 2001:db8::1"),
+                       "Boston, MA, USA")
+        // No IPv4: the IPv6 follows a comma, not a full stop.
+        XCTAssertEqual(placeName(fromVisibleLocation: "UK, London, IPv6: 2001:db8::1"), "London, UK")
+        // Only a country is known: that is the whole place.
+        XCTAssertEqual(placeName(fromVisibleLocation: "Sweden. IPv4: 1.2.3.4"), "Sweden")
+        XCTAssertEqual(placeName(fromVisibleLocation: "Sweden"), "Sweden")
+        XCTAssertNil(placeName(fromVisibleLocation: ""))
+    }
+
     func testMullvadRowLabel() {
+        // Connected: the place by name, with the relay that serves it.
         XCTAssertEqual(
-            mullvadRowLabel(MullvadStatus(state: .connected, relay: "us-bos-wg-001", location: "X")),
+            mullvadRowLabel(MullvadStatus(state: .connected, relay: "us-nyc-wg-001",
+                                          location: "USA, New York, NY. IPv4: 1.2.3.4")),
+            "Connection — New York, NY, USA (us-nyc-wg-001) · ON"
+        )
+        // Either half alone still says what it can.
+        XCTAssertEqual(
+            mullvadRowLabel(MullvadStatus(state: .connected, relay: "us-bos-wg-001", location: nil)),
             "Connection — us-bos-wg-001 · ON"
+        )
+        XCTAssertEqual(
+            mullvadRowLabel(MullvadStatus(state: .connected, relay: nil,
+                                          location: "Colombia, Bogota. IPv4: 154.47.16.56")),
+            "Connection — Bogota, Colombia · ON"
         )
         // Off with a remembered location: the location is still worth showing,
         // but the state is what the row ends on.
