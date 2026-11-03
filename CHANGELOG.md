@@ -8,6 +8,16 @@ without one is refused (`[no release]` in the tip commit is the only exception).
 Versions follow [Semantic Versioning](https://semver.org/). The full rule:
 [StatusItemKit — Releases](https://github.com/nicholaspsmith/StatusItemKit#releases-every-push-is-one).
 
+## [1.19.0] - 2026-11-03
+
+### Changed
+
+- Settings and the Icon picker have moved out of the menu into a **VPN & DNS Preferences** window: the menu now ends with **Preferences…** (⌘,) and **Quit VPN & DNS**. The window holds Start at Login, the Fastest Lists ranking and which lists show, the menu-bar icon (Iguana or Dot, shown as they look in the bar) and the version. Esc or ⌘W closes it. Your existing choices carry over.
+- Clicking an option in the menu now leaves it open: the Mullvad, Tailscale and MagicDNS rows, a city in a Fastest list, the split-tunnel toggle, removing an excluded app, and the Measure rows. Only Quit and the items ending in "…" close it.
+- The open menu updates itself as things change: a row greys out while its connect, disconnect or toggle runs, then shows the new state, and the Split Tunnel, Fastest and Measure submenus follow along.
+- Section headers and every row you can't click (footers, progress, the excluded-apps heading) are drawn grey, so nothing looks clickable that isn't.
+- "Open Tailscale App" is now "Open Tailscale App…", since it opens a window and closes the menu.
+
 ## [1.18.0] - 2026-11-02
 
 - No user-visible changes.
