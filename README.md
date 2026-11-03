@@ -13,7 +13,7 @@ A macOS menu-bar app, **"VPN & DNS.app"**, that shows **Mullvad VPN** and
 DNS working while both run at once. Hide the native Mullvad and Tailscale
 menu-bar icons (System Settings ▸ Menu Bar on macOS 27) and use this one.
 
-**Version 1.17.0** · [Changelog](https://github.com/nicholaspsmith/vpn-dns-menubar/releases)
+**Version 1.19.0** · [Changelog](https://github.com/nicholaspsmith/vpn-dns-menubar/releases)
 
 ## What you see
 
@@ -40,8 +40,8 @@ Archimedes (Claude Usage), Menu Pimp (Mac Daddy), Carol (SoundChain), Iguanamous
 (VPN & DNS), then Armonitor (Panes), counting only the ones running.
 The animation is skipped when Reduce Motion is on.
 
-**Icon ▸ Dot** swaps the iguana for a single coloured status dot;
-**Icon ▸ Iguana** brings her back.
+**Preferences… ▸ Menu Bar Icon ▸ Dot** swaps the iguana for a single coloured
+status dot; **Iguana** brings her back.
 
 ## The menu
 
@@ -55,28 +55,34 @@ Mullvad - Device Name                    ← section header (this Mac's Mullvad 
   Fastest Latin America (No-ID)          ▸
   Fastest Europe (No-ID)                 ▸
   Fastest Asia (No-ID)                   ▸
-  Throughput                             ▸ Measure Throughput Now, or progress + Cancel
+  Measure                                ▸ Measure Latency / Throughput Now, or progress + Cancel
 ──────────────────────────────────────────
 Tailscale                                ← section header
   ●  Connection · ON                     → click brings Tailscale up / down
   ◍  MagicDNS — accept-dns · ON          → click toggles accept-dns
-  Open Tailscale App
+  Open Tailscale App…
 ──────────────────────────────────────────
-Settings                                 ▸ Fastest Lists ▸ ranking, which lists show
-                                           ──────
-                                           Start at Login
-                                           ──────
-                                           Version X.Y.Z
-Icon                                     ▸ Dot / Iguana
+Preferences…                             ⌘,
 Quit VPN & DNS                           ⌘Q
 ```
 
-The Settings submenu is StatusItemKit's shared `SettingsMenu`; the app adds
-Fastest Lists above Start at Login, and its own Icon picker right below
-Settings in the main menu.
+Every option in the menu (a status row, a city, a split-tunnel toggle or
+removal, a Measure row) leaves the menu open and updates it in place. Only
+Quit and the items ending in "…" (Add App…, Open Tailscale App…,
+Preferences…) close it. While the menu is open the app polls every two
+seconds, so a connect or disconnect shows as it happens; a row whose action is
+still running is greyed out until the next poll reads its result. Section
+headers and every row you can't click (footers, progress, the excluded-apps
+heading) are drawn grey.
 
-Section headers and informational rows render at full contrast, never the
-disabled grey.
+**Preferences… (⌘,)** opens the **VPN & DNS Preferences** window, Mac Daddy's
+layout (StatusItemKit's shared `PreferencesPane`); Esc or ⌘W closes it:
+
+- **General**: Start at Login.
+- **Fastest Lists**: rank by Latency (default) or Throughput, and which of the
+  six Fastest submenus appear (all by default).
+- **Menu Bar Icon**: Iguana or Dot, each drawn as the bar would show it now.
+- The version, centred in grey at the bottom.
 
 **Status rows.** All three share one shape — coloured dot, name, detail, state
 as the last word — and clicking one toggles what it describes.
@@ -99,10 +105,9 @@ Non-US. Every city in the pool qualifies under No-ID rules. Clicking a city sets
 the relay location and runs `mullvad connect`; clicking the current city (✓)
 disconnects. A footer shows when latency and throughput were last measured.
 
-**Settings ▸ Fastest Lists ▸** picks **Rank by Latency** (default) or **Rank
-by Throughput** and ticks which of the six submenus appear (all by default;
-ticking leaves the menu open, so several can be changed at once).
-Every choice persists. **Measure ▸** starts a latency measurement, or starts
+**Preferences… ▸ Fastest Lists** picks the ranking (Latency, the default, or
+Throughput) and which of the six submenus appear (all by default). Every
+choice persists. **Measure ▸** starts a latency measurement, or starts
 or cancels a throughput run. Nothing is ever measured unless you pick one of
 these.
 
@@ -191,7 +196,7 @@ Run the tests with `swift test`.
 
 ### Start at Login
 
-Toggle **Settings ▸ Start at Login** in the menu, or from the shell:
+Toggle **Preferences… ▸ General ▸ Start at Login**, or from the shell:
 
 ```sh
 "$HOME/Applications/VPN & DNS.app/Contents/MacOS/VPNDNSMenuBar" --login on   # or: off, status
@@ -241,7 +246,7 @@ cannot exclude Tailscale's system network extension. To reach a tailnet host,
 ## Uninstall
 
 ```sh
-# app (turn Start at Login off in the menu first)
+# app (turn Start at Login off in Preferences first)
 pkill -x VPNDNSMenuBar
 rm ~/Applications/"VPN & DNS.app"
 

@@ -29,23 +29,20 @@ private func nsColor(_ c: DotColor) -> NSColor {
     }
 }
 
-/// Maximum-contrast text color: pure black in light mode, pure white in dark.
-/// labelColor is ~85% alpha, which still reads washed-out for menu headers.
-private let maxContrastColor = NSColor(name: nil) { appearance in
-    appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua ? .white : .black
+/// Non-clickable group header: bold at normal menu size, drawn grey like
+/// every other row you can't click. (The native macOS 14 sectionHeader style
+/// was tried and rejected: its fixed small size is hard to read.)
+private func headerItem(_ title: String) -> NSMenuItem {
+    let item = InfoMenuItem.make(title)
+    item.attributedTitle = headerTitle(title)
+    return item
 }
 
-/// Non-clickable group header: bold at normal menu size and full contrast.
-/// (The native macOS 14 sectionHeader style was tried and rejected — its
-/// fixed small/muted rendering is exactly the hard-to-read look this avoids.)
-private func headerItem(_ title: String) -> NSMenuItem {
-    let item = NSMenuItem(title: title, action: nil, keyEquivalent: "")
-    item.isEnabled = false
-    item.attributedTitle = NSAttributedString(string: title, attributes: [
+private func headerTitle(_ title: String) -> NSAttributedString {
+    NSAttributedString(string: title, attributes: [
         .font: NSFont.boldSystemFont(ofSize: NSFont.menuFont(ofSize: 0).pointSize),
-        .foregroundColor: maxContrastColor,
+        .foregroundColor: NSColor.disabledControlTextColor,
     ])
-    return item
 }
 
 /// Small filled circle for menu-row status dots, centered in a 16 pt canvas
@@ -57,26 +54,6 @@ private func dotImage(_ color: NSColor, diameter: CGFloat = 10) -> NSImage {
         NSBezierPath(ovalIn: NSRect(x: inset, y: inset, width: diameter, height: diameter)).fill()
         return true
     }
-}
-
-/// Non-clickable info row at full contrast: reads like content, never
-/// highlights, takes no click. (An explicit attributedTitle overrides
-/// AppKit's faint disabled-gray rendering.)
-/// A greyed-out row: an action that can't run right now, or why.
-private func disabledItem(_ title: String) -> NSMenuItem {
-    let item = NSMenuItem(title: title, action: nil, keyEquivalent: "")
-    item.isEnabled = false
-    return item
-}
-
-private func infoItem(_ title: String) -> NSMenuItem {
-    let item = NSMenuItem(title: title, action: nil, keyEquivalent: "")
-    item.isEnabled = false
-    item.attributedTitle = NSAttributedString(string: title, attributes: [
-        .font: NSFont.menuFont(ofSize: 0),
-        .foregroundColor: NSColor.labelColor,
-    ])
-    return item
 }
 
 /// Pings candidate relays and records direct latency, only when the user
@@ -196,6 +173,54 @@ final class App: NSObject, NSApplicationDelegate {
     private var mullvadIsOff = false   // guarded by mullvadStateLock; read by probe off-main
     private let pollQueue = DispatchQueue(label: "vpndns.poll")
     private var pollInFlight = false   // main-thread only; drops overlapping polls
+    /// An action finished while a poll was in flight: poll again once it lands,
+    /// so the result shows without waiting for the next tick.
+    private var pollAgain = false
+
+    /// What the menu's clicks start. Each runs a CLI call off the main thread;
+    /// while one is running, the rows it changes are disabled (grey), so the
+    /// open menu never offers a toggle whose state it doesn't know yet.
+    enum PendingAction: Hashable {
+        case mullvad, tailscale, acceptDNS, splitTunnel
+        case removeSplitTunnelApp(String)
+    }
+    /// Started, not yet reflected in a poll (main thread).
+    private var actionsInFlight: Set<PendingAction> = []
+    /// Finished; the next poll to start reads their result (main thread).
+    private var actionsSettling: Set<PendingAction> = []
+
+    private var preferencesModel: PreferencesModel!
+    private var preferences: PreferencesPane!
+
+    /// The rows of the open menu that change with the state, updated in place
+    /// on every poll while it is open. Nil while the menu is closed.
+    private final class OpenMenu {
+        let header: NSMenuItem
+        let mullvad: NSMenuItem
+        let splitTunnel: NSMenuItem
+        let cities: [(list: FastList, item: NSMenuItem)]
+        let measure: NSMenuItem
+        let tailscale: NSMenuItem
+        let acceptDNS: NSMenuItem
+        init(header: NSMenuItem, mullvad: NSMenuItem, splitTunnel: NSMenuItem,
+             cities: [(list: FastList, item: NSMenuItem)], measure: NSMenuItem,
+             tailscale: NSMenuItem, acceptDNS: NSMenuItem) {
+            self.header = header
+            self.mullvad = mullvad
+            self.splitTunnel = splitTunnel
+            self.cities = cities
+            self.measure = measure
+            self.tailscale = tailscale
+            self.acceptDNS = acceptDNS
+        }
+    }
+    private var openMenu: OpenMenu?
+    private var menuIsOpen = false
+    /// Polls while the menu is open. StatusItemController's own timer runs in
+    /// the default run-loop mode, which a tracking menu suspends, so without
+    /// this an open menu would never see a connect finish.
+    private var openMenuTimer: Timer?
+    private static let openMenuPollInterval: TimeInterval = 2
 
     override init() {
         let pool: CandidatePool
@@ -220,7 +245,14 @@ final class App: NSObject, NSApplicationDelegate {
             onPoll: { [weak self] in self?.poll() },
             onBuildMenu: { [weak self] menu in self?.build(menu) }
         )
+        controller.onMenuWillOpen = { [weak self] in self?.menuWillOpen() }
+        controller.onMenuDidClose = { [weak self] in self?.menuDidClose() }
         controller.start()
+        preferencesModel = PreferencesModel(
+            onIconStyle: { [weak self] in self?.applyIcon() },
+            preview: { [weak self] style in self?.iconImage(style) ?? NSImage() }
+        )
+        preferences = PreferencesPane.vpnDNS(model: preferencesModel)
         yieldClient = YieldClient(item: controller)
         yieldClient.start()
         minuteCue = MinuteCue { [weak self] in
@@ -238,7 +270,7 @@ final class App: NSObject, NSApplicationDelegate {
             },
             // Main-thread read: measureNow and canMeasure only run on the main thread.
             splitTunnelOn: { [weak self] in self?.splitTunnel.enabled ?? false },
-            onUpdate: { [weak self] in self?.poll() }
+            onUpdate: { [weak self] in self?.requestPoll() }
         )
         throughput = ThroughputProbe(
             store: store,
@@ -249,7 +281,7 @@ final class App: NSObject, NSApplicationDelegate {
                 defer { self.mullvadStateLock.unlock() }
                 return self.mullvadIsOff
             },
-            onUpdate: { [weak self] in self?.poll() }
+            onUpdate: { [weak self] in self?.requestPoll() }
         )
         // Crash backstop: a probe killed mid-run can leave /sbin/ping in the
         // split-tunnel exclusions; never let that linger across launches.
@@ -279,6 +311,9 @@ final class App: NSObject, NSApplicationDelegate {
     private func poll() {
         if pollInFlight { return }
         pollInFlight = true
+        // Actions that finished before this poll began: its result shows them.
+        let settling = actionsSettling
+        actionsSettling = []
         let tsRunning = tailscaleAppRunning()   // on main; guards the GUI-launching calls below
         let tick = pollTick
         pollTick += 1
@@ -319,8 +354,123 @@ final class App: NSObject, NSApplicationDelegate {
                 default: self.lastAlert = nil
                 }
                 self.applyIcon()
+                self.actionsInFlight.subtract(settling)
+                self.refreshOpenMenu()
+                if self.pollAgain {
+                    self.pollAgain = false
+                    self.poll()
+                }
             }
         }
+    }
+
+    /// Polls now, or as soon as the poll in flight lands.
+    private func requestPoll() {
+        if pollInFlight { pollAgain = true } else { poll() }
+    }
+
+    /// Runs one of the menu's actions off the main thread. Its rows grey out
+    /// at once and come back with the state the next poll reads.
+    private func perform(_ action: PendingAction, _ work: @escaping () -> Void) {
+        guard !actionsInFlight.contains(action) else { return }
+        actionsInFlight.insert(action)
+        refreshOpenMenu()
+        DispatchQueue.global().async { [weak self] in
+            work()
+            DispatchQueue.main.async {
+                guard let self else { return }
+                self.actionsSettling.insert(action)
+                self.requestPoll()
+            }
+        }
+    }
+
+    // MARK: - Open menu
+
+    private func menuWillOpen() {
+        menuIsOpen = true
+        openMenuTimer?.invalidate()
+        let timer = Timer(timeInterval: Self.openMenuPollInterval, repeats: true) { [weak self] _ in self?.poll() }
+        RunLoop.main.add(timer, forMode: .common)
+        openMenuTimer = timer
+    }
+
+    private func menuDidClose() {
+        menuIsOpen = false
+        openMenuTimer?.invalidate()
+        openMenuTimer = nil
+        openMenu = nil
+    }
+
+    /// Brings the open menu up to date: the header, the three status rows,
+    /// and each submenu whose contents changed. A submenu with the same rows
+    /// keeps its items (only ticks and greying change), so the row under the
+    /// pointer is never swapped out from under it.
+    private func refreshOpenMenu() {
+        guard menuIsOpen, let open = openMenu else { return }
+        open.header.attributedTitle = headerTitle(mullvadHeaderTitle)
+        updateStatusRow(open.mullvad, title: mullvadRowLabel(mullvad),
+                        dot: dotColor(for: mullvad.state), enabled: !actionsInFlight.contains(.mullvad))
+        updateStatusRow(open.tailscale, title: tailscaleRowLabel(backend),
+                        dot: tailscaleColor(backend), enabled: !actionsInFlight.contains(.tailscale))
+        updateStatusRow(open.acceptDNS, title: acceptDNSLabel(corpDNS),
+                        dot: acceptDNSDotColor(corpDNS), enabled: !actionsInFlight.contains(.acceptDNS))
+        refreshSubmenu(open.splitTunnel, title: splitTunnelMenuTitle(splitTunnel.enabled), populate: populateSplitTunnel)
+        let model = fastCitiesModel()
+        for (list, item) in open.cities {
+            guard let section = model.sections.first(where: { $0.list == list }) else { continue }
+            refreshSubmenu(item, title: section.header) { [self] sub in
+                populateCities(sub, section, footers: [model.footer, model.throughputFooter])
+            }
+        }
+        refreshSubmenu(open.measure, title: measureTitle, populate: populateMeasure)
+    }
+
+    /// `KeepOpenMenuRow` sizes itself to its title alone but draws the item's
+    /// image in front of it (6 pt gap), so a status row with a dot would be
+    /// clipped at the end when it is the menu's widest. Room for the dot.
+    private func fitImage(_ item: NSMenuItem) {
+        guard let view = item.view, let image = item.image else { return }
+        view.setFrameSize(NSSize(width: view.frame.width + image.size.width + 6, height: view.frame.height))
+    }
+
+    private func updateStatusRow(_ item: NSMenuItem, title: String, dot: DotColor, enabled: Bool) {
+        let titleChanged = item.title != title
+        item.title = title
+        item.image = dotImage(nsColor(dot))
+        item.isEnabled = enabled
+        if titleChanged {
+            // A new row measures the new title, so a longer one widens the menu.
+            item.view = KeepOpenMenuRow(item: item)
+            fitImage(item)
+        } else {
+            item.view?.needsDisplay = true
+            (item.view as? MenuItemRow)?.updateColors()
+        }
+    }
+
+    private func refreshSubmenu(_ root: NSMenuItem, title: String, populate: (NSMenu) -> Void) {
+        if root.title != title { root.title = title }
+        guard let sub = root.submenu else { return }
+        let fresh = NSMenu()
+        populate(fresh)
+        let next = fresh.items
+        fresh.removeAllItems()
+        func shape(_ i: NSMenuItem) -> String { "\(i.isSeparatorItem)|\(i.title)|\(String(describing: i.action))" }
+        if sub.items.map(shape) == next.map(shape) {
+            for (old, new) in zip(sub.items, next) {
+                old.representedObject = new.representedObject
+                guard old.state != new.state || old.isEnabled != new.isEnabled else { continue }
+                old.state = new.state
+                old.isEnabled = new.isEnabled
+                (old.view as? MenuItemRow)?.updateColors()
+                old.view?.needsDisplay = true
+            }
+            return
+        }
+        sub.removeAllItems()
+        next.forEach(sub.addItem)
+        KeepOpenMenu.apply(to: sub.items)
     }
 
     // MARK: - Icon style
@@ -357,83 +507,96 @@ final class App: NSObject, NSApplicationDelegate {
     })
 
     private func applyIcon() {
-        switch IconStyle.current {
-        case .iguana: controller.setIcon(CharacterIcon.iguana(tailscale: lastTail, mullvad: lastTongue,
-                                                              acceptDNS: lastDNS, alert: lastAlert, lick: lickTime))
-        case .dot: controller.setIcon(MeterIcon.dot(color: lastIconColor))
+        controller.setIcon(iconImage(IconStyle.current, lick: lickTime))
+    }
+
+    /// The icon in `style` as the bar shows it now (the Preferences tiles
+    /// draw it too).
+    private func iconImage(_ style: IconStyle, lick: TimeInterval? = nil) -> NSImage {
+        switch style {
+        case .iguana: return CharacterIcon.iguana(tailscale: lastTail, mullvad: lastTongue,
+                                                  acceptDNS: lastDNS, alert: lastAlert, lick: lick)
+        case .dot: return MeterIcon.dot(color: lastIconColor)
         }
     }
 
-    @objc private func setIconStyle(_ sender: NSMenuItem) {
-        guard let raw = sender.representedObject as? String, let style = IconStyle(rawValue: raw) else { return }
-        IconStyle.current = style
-        applyIcon()
+    private var mullvadHeaderTitle: String { deviceName.map { "Mullvad - \($0)" } ?? "Mullvad" }
+
+    /// A status row: a dot, the state, and a click that toggles it, leaving
+    /// the menu open. Disabled while its last toggle is still running.
+    private func statusRow(_ title: String, dot: DotColor, action: Selector, pending: PendingAction) -> NSMenuItem {
+        let item = NSMenuItem(title: title, action: action, keyEquivalent: "")
+        item.target = self
+        item.image = dotImage(nsColor(dot))
+        item.isEnabled = !actionsInFlight.contains(pending)
+        return item
     }
 
-    private func addGroupHeader(_ menu: NSMenu, _ title: String) {
-        menu.addItem(headerItem(title))
+    private func submenuItem(_ title: String, populate: (NSMenu) -> Void) -> NSMenuItem {
+        let root = NSMenuItem(title: title, action: nil, keyEquivalent: "")
+        let sub = NSMenu(title: title)
+        // Enabled state is set by hand (pending actions grey their rows), so
+        // AppKit's validation must not override it.
+        sub.autoenablesItems = false
+        populate(sub)
+        root.submenu = sub
+        return root
     }
 
     // Two headed groups: everything Mullvad (status, split tunnel, relay
     // pickers), then everything Tailscale (status, toggle, accept-dns — a
-    // Tailscale pref), then the shared Settings submenu and Quit.
+    // Tailscale pref), then Preferences… and Quit. Every option keeps the
+    // menu open; Quit and the "…" items close it.
     private func build(_ menu: NSMenu) {
-        addGroupHeader(menu, deviceName.map { "Mullvad - \($0)" } ?? "Mullvad")
+        menu.autoenablesItems = false
+        let header = headerItem(mullvadHeaderTitle)
+        menu.addItem(header)
 
-        let mv = NSMenuItem(title: mullvadRowLabel(mullvad), action: #selector(toggleMullvad), keyEquivalent: "")
-        mv.target = self
-        mv.image = dotImage(nsColor(dotColor(for: mullvad.state)))
+        let mv = statusRow(mullvadRowLabel(mullvad), dot: dotColor(for: mullvad.state),
+                           action: #selector(toggleMullvad), pending: .mullvad)
         menu.addItem(mv)
 
-        menu.addItem(buildSplitTunnelItem())
+        let split = submenuItem(splitTunnelMenuTitle(splitTunnel.enabled), populate: populateSplitTunnel)
+        menu.addItem(split)
 
-        let model = fastCitiesMenu(store: store, currentRelay: mullvad.relay, now: Date(),
-                                   mode: RankModeSetting.current)
+        let model = fastCitiesModel()
+        var cities: [(list: FastList, item: NSMenuItem)] = []
         for section in visibleSections(model.sections, hidden: HiddenFastLists.current) {
-            menu.addItem(fastCitiesSubmenuItem(section, footers: [model.footer, model.throughputFooter]))
+            let item = submenuItem(section.header) { [self] sub in
+                populateCities(sub, section, footers: [model.footer, model.throughputFooter])
+            }
+            menu.addItem(item)
+            cities.append((section.list, item))
         }
-        menu.addItem(buildMeasureItem())
+        let measure = submenuItem(measureTitle, populate: populateMeasure)
+        menu.addItem(measure)
 
         menu.addItem(NSMenuItem.separator())
-        addGroupHeader(menu, "Tailscale")
+        menu.addItem(headerItem("Tailscale"))
 
         // Same shape as the Mullvad and MagicDNS rows: a dot, the state, and a
         // click that toggles it. It used to open the Tailscale app instead,
         // which left the three status rows behaving three different ways.
-        let ts = NSMenuItem(title: tailscaleRowLabel(backend), action: #selector(toggleTailscale), keyEquivalent: "")
-        ts.target = self
-        ts.image = dotImage(nsColor(tailscaleColor(backend)))
+        let ts = statusRow(tailscaleRowLabel(backend), dot: tailscaleColor(backend),
+                           action: #selector(toggleTailscale), pending: .tailscale)
         menu.addItem(ts)
 
-        let dns = NSMenuItem(title: acceptDNSLabel(corpDNS), action: #selector(toggleAcceptDNS), keyEquivalent: "")
-        dns.target = self
-        dns.image = dotImage(nsColor(acceptDNSDotColor(corpDNS)))
+        let dns = statusRow(acceptDNSLabel(corpDNS), dot: acceptDNSDotColor(corpDNS),
+                            action: #selector(toggleAcceptDNS), pending: .acceptDNS)
         menu.addItem(dns)
 
         // Opening the app was the old row's job, so it keeps a home of its own.
-        let openTS = NSMenuItem(title: "Open Tailscale App", action: #selector(openTailscale), keyEquivalent: "")
+        // It opens a window, so it closes the menu ("…").
+        let openTS = NSMenuItem(title: "Open Tailscale App…", action: #selector(openTailscale), keyEquivalent: "")
         openTS.target = self
         menu.addItem(openTS)
 
-        menu.addItem(NSMenuItem.separator())
+        PreferencesMenu.addFooter(to: menu, appName: "VPN & DNS") { [weak self] in self?.preferences.show() }
+        KeepOpenMenu.apply(to: menu.items)
+        [mv, ts, dns].forEach(fitImage)
 
-        SettingsMenu.addFooter(to: menu, appName: "VPN & DNS", items: { [self] settings in
-            settings.addItem(buildFastListsSettingsItem())
-        }, belowSettings: { [self] menu in
-            // The dot or the iguana: this app's own picker, not AppearanceMenu,
-            // in the main menu right below Settings.
-            let iconHeader = NSMenuItem(title: "Icon", action: nil, keyEquivalent: "")
-            let iconSub = NSMenu()
-            for style in IconStyle.allCases {
-                let item = NSMenuItem(title: style.title, action: #selector(setIconStyle(_:)), keyEquivalent: "")
-                item.target = self
-                item.representedObject = style.rawValue
-                item.state = style == IconStyle.current ? .on : .off
-                iconSub.addItem(item)
-            }
-            iconHeader.submenu = iconSub
-            menu.addItem(iconHeader)
-        })
+        openMenu = OpenMenu(header: header, mullvad: mv, splitTunnel: split, cities: cities,
+                            measure: measure, tailscale: ts, acceptDNS: dns)
     }
 
     // MARK: - Fastest lists show/hide
@@ -456,40 +619,13 @@ final class App: NSObject, NSApplicationDelegate {
         }
     }
 
-    // Settings ▸ "Fastest Lists ▸" — rank-mode radio rows, then one checkable
-    // row per list (ticked = shown).
-    private func buildFastListsSettingsItem() -> NSMenuItem {
-        let root = NSMenuItem(title: "Fastest Lists", action: nil, keyEquivalent: "")
-        let sub = NSMenu()
-
-        let mode = RankModeSetting.current
-        for m in RankMode.allCases {
-            let item = NSMenuItem(title: m.menuTitle, action: #selector(setRankMode(_:)), keyEquivalent: "")
-            item.target = self
-            item.representedObject = m.rawValue
-            item.state = m == mode ? .on : .off
-            sub.addItem(item)
-        }
-        sub.addItem(NSMenuItem.separator())
-
-        let hidden = HiddenFastLists.current
-        for list in FastList.allCases {
-            // Keep-open checkbox: tick several lists without reopening the menu.
-            // The list sections themselves appear or vanish the next time the
-            // menu opens.
-            sub.addItem(ToggleMenuItem.make(title: list.shortName, isOn: !hidden.contains(list)) { [weak self] shown in
-                self?.setFastList(list, shown: shown)
-            })
-        }
-        root.submenu = sub
-        return root
-    }
+    // MARK: - Measure
 
     // "Measure ▸" — the only way latency or throughput is ever measured: a
     // start row for each, or progress (+ Cancel for throughput) while one is in
     // flight. The top-level title carries the progress too, so a run is visible
     // without opening the submenu.
-    private func buildMeasureItem() -> NSMenuItem {
+    private var measureTitle: String {
         var title = "Measure"
         if case .measuring(let done, let total, _) = throughput.phase {
             title += " · throughput \(done + 1)/\(total)"
@@ -498,81 +634,76 @@ final class App: NSObject, NSApplicationDelegate {
         } else if probe.isRunning {
             title += " · latency"
         }
-        let root = NSMenuItem(title: title, action: nil, keyEquivalent: "")
-        let sub = NSMenu()
+        return title
+    }
+
+    private func populateMeasure(_ sub: NSMenu) {
         if probe.isRunning {
-            sub.addItem(infoItem("Measuring latency…"))
+            sub.addItem(InfoMenuItem.make("Measuring latency…"))
         } else if throughput.isRunning {
             // A throughput run is hopping relays; pings now would not be direct.
-            sub.addItem(disabledItem("Measure Latency Now"))
+            sub.addItem(InfoMenuItem.make("Measure Latency Now"))
         } else if probe.canMeasure {
             let run = NSMenuItem(title: "Measure Latency Now", action: #selector(measureLatency), keyEquivalent: "")
             run.target = self
             sub.addItem(run)
         } else {
             // Connected with split tunnelling off: a ping would time the tunnel.
-            sub.addItem(disabledItem("Measure Latency Now"))
-            sub.addItem(disabledItem("Disconnect Mullvad or turn on Split Tunnel"))
+            sub.addItem(InfoMenuItem.make("Measure Latency Now"))
+            sub.addItem(InfoMenuItem.make("Disconnect Mullvad or turn on Split Tunnel"))
         }
         switch throughput.phase {
         case .idle:
             if probe.isRunning {
-                sub.addItem(disabledItem("Measure Throughput Now"))
+                sub.addItem(InfoMenuItem.make("Measure Throughput Now"))
             } else {
                 let run = NSMenuItem(title: "Measure Throughput Now", action: #selector(measureThroughput), keyEquivalent: "")
                 run.target = self
                 sub.addItem(run)
             }
         case .measuring(let done, let total, let city):
-            sub.addItem(infoItem(throughputProgressTitle(done: done, total: total, city: city)))
+            sub.addItem(InfoMenuItem.make(throughputProgressTitle(done: done, total: total, city: city)))
             let cancel = NSMenuItem(title: "Cancel", action: #selector(cancelThroughput), keyEquivalent: "")
             cancel.target = self
             sub.addItem(cancel)
         case .restoring:
-            sub.addItem(infoItem("Restoring previous connection…"))
+            sub.addItem(InfoMenuItem.make("Restoring previous connection…"))
         }
-        root.submenu = sub
-        return root
-    }
-
-    @objc private func setRankMode(_ sender: NSMenuItem) {
-        guard let raw = sender.representedObject as? String, let mode = RankMode(rawValue: raw) else { return }
-        RankModeSetting.current = mode
     }
 
     @objc private func measureLatency() { probe.measureNow() }
     @objc private func measureThroughput() { throughput.startRun() }
     @objc private func cancelThroughput() { throughput.cancel() }
 
-    private func setFastList(_ list: FastList, shown: Bool) {
-        var hidden = HiddenFastLists.current
-        if shown { hidden.remove(list) } else { hidden.insert(list) }
-        HiddenFastLists.current = hidden
+    // MARK: - Fastest cities
+
+    private func fastCitiesModel() -> FastCitiesMenu {
+        fastCitiesMenu(store: store, currentRelay: mullvad.relay, now: Date(), mode: RankModeSetting.current)
     }
 
     // One top-level item per fastest-cities section; city rows + freshness
-    // footer live in its submenu so the top level stays short.
-    private func fastCitiesSubmenuItem(_ section: MenuSection, footers: [String]) -> NSMenuItem {
-        let root = NSMenuItem(title: section.header, action: nil, keyEquivalent: "")
-        let sub = NSMenu()
+    // footer live in its submenu so the top level stays short. Ticked: the
+    // city Mullvad is on. Clicking it disconnects; clicking another moves
+    // there. The rows grey out while that runs.
+    private func populateCities(_ sub: NSMenu, _ section: MenuSection, footers: [String]) {
+        let busy = actionsInFlight.contains(.mullvad)
         for row in section.rows {
             let item = NSMenuItem(title: row.title, action: #selector(toggleCity(_:)), keyEquivalent: "")
             item.target = self
             item.state = row.isCurrent ? .on : .off
+            item.isEnabled = !busy
             item.representedObject = ["cc": row.cc, "city": row.cityCode]
             sub.addItem(item)
         }
         sub.addItem(NSMenuItem.separator())
-        for footer in footers { sub.addItem(infoItem(footer)) }
-        root.submenu = sub
-        return root
+        for footer in footers { sub.addItem(InfoMenuItem.make(footer)) }
     }
 
     @objc private func toggleCity(_ sender: NSMenuItem) {
         guard let info = sender.representedObject as? [String: String],
               let cc = info["cc"], let city = info["city"] else { return }
         let action = toggleAction(currentRelay: mullvad.relay, clickedCC: cc, clickedCityCode: city)
-        DispatchQueue.global().async { [weak self] in
+        perform(.mullvad) {
             switch action {
             case .disconnect:
                 _ = Shell.run(MULLVAD, ["disconnect"])
@@ -580,20 +711,20 @@ final class App: NSObject, NSApplicationDelegate {
                 _ = Shell.run(MULLVAD, ["relay", "set", "location", cc, city])
                 _ = Shell.run(MULLVAD, ["connect"])
             }
-            DispatchQueue.main.async { self?.poll() }
         }
     }
+
+    // MARK: - Status row actions
 
     // Connect goes to Mullvad's persisted relay selection — no app-side copy
     // to go stale if the endpoint is changed in the native app.
     @objc private func toggleMullvad() {
         let action = mullvadToggle(mullvad.state)
-        DispatchQueue.global().async { [weak self] in
+        perform(.mullvad) {
             switch action {
             case .connect: _ = Shell.run(MULLVAD, ["connect"])
             case .disconnect: _ = Shell.run(MULLVAD, ["disconnect"])
             }
-            DispatchQueue.main.async { self?.poll() }
         }
     }
     @objc private func openTailscale() {
@@ -601,28 +732,28 @@ final class App: NSObject, NSApplicationDelegate {
     }
     @objc private func toggleTailscale() {
         let action = tailscaleToggle(backend)
-        DispatchQueue.global().async { [weak self] in
+        perform(.tailscale) {
             switch action {
             case .up: _ = Shell.run(TS, ["up"], env: TS_ENV)
             case .down: _ = Shell.run(TS, ["down"], env: TS_ENV)
             }
-            DispatchQueue.main.async { self?.poll() }
         }
     }
     // Manual override; the DNS watcher (event-driven) re-asserts its mapping on
     // the next Mullvad connect/disconnect, so this holds only until then.
     @objc private func toggleAcceptDNS() {
         let target = corpDNS ? "false" : "true"
-        DispatchQueue.global().async { [weak self] in
+        perform(.acceptDNS) {
             _ = Shell.run(TS, ["set", "--accept-dns=\(target)"], env: TS_ENV)
-            DispatchQueue.main.async { self?.poll() }
         }
     }
-    private func buildSplitTunnelItem() -> NSMenuItem {
-        let root = NSMenuItem(title: splitTunnelMenuTitle(splitTunnel.enabled), action: nil, keyEquivalent: "")
-        let sub = NSMenu()
+
+    // MARK: - Split tunnel
+
+    private func populateSplitTunnel(_ sub: NSMenu) {
         let toggle = NSMenuItem(title: splitTunnelToggleLabel(splitTunnel.enabled), action: #selector(toggleSplitTunnel), keyEquivalent: "")
         toggle.target = self
+        toggle.isEnabled = !actionsInFlight.contains(.splitTunnel)
         sub.addItem(toggle)
         let apps = splitTunnelDisplayApps(splitTunnel.apps)
         if !apps.isEmpty {
@@ -632,6 +763,7 @@ final class App: NSObject, NSApplicationDelegate {
                 let item = NSMenuItem(title: splitTunnelAppDisplayName(path), action: #selector(removeSplitTunnelApp(_:)), keyEquivalent: "")
                 item.target = self
                 item.state = .on
+                item.isEnabled = !actionsInFlight.contains(.removeSplitTunnelApp(path))
                 item.representedObject = path
                 item.toolTip = path
                 sub.addItem(item)
@@ -641,23 +773,19 @@ final class App: NSObject, NSApplicationDelegate {
         let add = NSMenuItem(title: "Add App…", action: #selector(addSplitTunnelApp), keyEquivalent: "")
         add.target = self
         sub.addItem(add)
-        root.submenu = sub
-        return root
     }
 
     @objc private func toggleSplitTunnel() {
         let target = splitTunnel.enabled ? "off" : "on"
-        DispatchQueue.global().async { [weak self] in
+        perform(.splitTunnel) {
             _ = Shell.run(MULLVAD, ["split-tunnel", "set", target])
-            DispatchQueue.main.async { self?.poll() }
         }
     }
 
     @objc private func removeSplitTunnelApp(_ sender: NSMenuItem) {
         guard let path = sender.representedObject as? String else { return }
-        DispatchQueue.global().async { [weak self] in
+        perform(.removeSplitTunnelApp(path)) {
             _ = Shell.run(MULLVAD, ["split-tunnel", "app", "remove", path])
-            DispatchQueue.main.async { self?.poll() }
         }
     }
 
