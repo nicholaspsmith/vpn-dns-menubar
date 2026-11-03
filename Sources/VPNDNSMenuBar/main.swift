@@ -426,13 +426,6 @@ final class App: NSObject, NSApplicationDelegate {
         refreshSubmenu(open.measure, title: measureTitle, populate: populateMeasure)
     }
 
-    /// `KeepOpenMenuRow` sizes itself to its title alone but draws the item's
-    /// image in front of it (6 pt gap), so a status row with a dot would be
-    /// clipped at the end when it is the menu's widest. Room for the dot.
-    private func fitImage(_ item: NSMenuItem) {
-        guard let view = item.view, let image = item.image else { return }
-        view.setFrameSize(NSSize(width: view.frame.width + image.size.width + 6, height: view.frame.height))
-    }
 
     private func updateStatusRow(_ item: NSMenuItem, title: String, dot: DotColor, enabled: Bool) {
         let titleChanged = item.title != title
@@ -442,7 +435,6 @@ final class App: NSObject, NSApplicationDelegate {
         if titleChanged {
             // A new row measures the new title, so a longer one widens the menu.
             item.view = KeepOpenMenuRow(item: item)
-            fitImage(item)
         } else {
             item.view?.needsDisplay = true
             (item.view as? MenuItemRow)?.updateColors()
@@ -593,7 +585,6 @@ final class App: NSObject, NSApplicationDelegate {
 
         PreferencesMenu.addFooter(to: menu, appName: "VPN & DNS") { [weak self] in self?.preferences.show() }
         KeepOpenMenu.apply(to: menu.items)
-        [mv, ts, dns].forEach(fitImage)
 
         openMenu = OpenMenu(header: header, mullvad: mv, splitTunnel: split, cities: cities,
                             measure: measure, tailscale: ts, acceptDNS: dns)

@@ -8,6 +8,10 @@ without one is refused (`[no release]` in the tip commit is the only exception).
 Versions follow [Semantic Versioning](https://semver.org/). The full rule:
 [StatusItemKit — Releases](https://github.com/nicholaspsmith/StatusItemKit#releases-every-push-is-one).
 
+## [1.19.1] - 2026-11-03
+
+- Internal: the status rows' width now comes from StatusItemKit 0.38.1, which makes room for their coloured dot itself. No visible change.
+
 ## [1.19.0] - 2026-11-03
 
 ### Changed
