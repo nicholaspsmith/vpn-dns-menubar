@@ -14,7 +14,7 @@ import VPNDNSCore
 /// Cloudflare's speed-test endpoints — a small probe transfer first, then one
 /// sized to run about five seconds at the probed rate (capped at Cloudflare's
 /// 90 MB per-request limit). Deliberately intrusive, so it only ever runs
-/// when the user picks Measure ▸ Measure Throughput Now.
+/// when the user clicks Measure Throughput Now in Preferences.
 /// When it finishes (or is cancelled) it restores the original relay
 /// constraint and connected/off state. All state below is main-thread-only
 /// except where noted.
@@ -33,6 +33,9 @@ final class ThroughputProbe {
     private let cancelLock = NSLock()
     private var cancelRequested = false   // guarded by cancelLock
     private(set) var phase: Phase = .idle
+    /// When the city now being measured began: paces the progress bar, since
+    /// a city reports nothing until it is done.
+    private(set) var cityStarted = Date()
 
     static let downloadURL = "https://speed.cloudflare.com/__down"
     static let uploadURL = "https://speed.cloudflare.com/__up"
@@ -52,20 +55,29 @@ final class ThroughputProbe {
 
     var isRunning: Bool { phase != .idle }
 
-    /// The only trigger: the user's menu pick. No-op while a run is in progress.
+    /// Cancel was clicked and the step in flight is still finishing.
+    var isCancelling: Bool { isRunning && cancelled }
+
+    /// The only trigger: the user's click in Preferences. No-op while a run
+    /// is in progress.
     func startRun() {
         guard !isRunning else { return }
         cancelLock.lock(); cancelRequested = false; cancelLock.unlock()
         let relays = store.pool.us + store.pool.nonus
         guard let first = relays.first else { return }
         phase = .measuring(done: 0, total: relays.count, city: first.city)
+        cityStarted = Date()
+        onUpdate()
         queue.async { [weak self] in self?.run(relays) }
     }
 
-    /// Finish the city in progress, then restore. No-op when idle.
+    /// Stops at the next step (a connect or transfer already under way
+    /// finishes first), drops the half-measured city, keeps the cities
+    /// already finished, then restores. No-op when idle or already restoring.
     func cancel() {
-        guard isRunning else { return }
+        guard isRunning, phase != .restoring else { return }
         cancelLock.lock(); cancelRequested = true; cancelLock.unlock()
+        onUpdate()
     }
 
     private var cancelled: Bool {
@@ -75,6 +87,7 @@ final class ThroughputProbe {
 
     private func setPhase(_ p: Phase) {
         DispatchQueue.main.async { [weak self] in
+            if case .measuring = p { self?.cityStarted = Date() }
             self?.phase = p
             self?.onUpdate()
         }
@@ -94,14 +107,11 @@ final class ThroughputProbe {
             if cancelled { break }
             setPhase(.measuring(done: i, total: relays.count, city: relay.city))
             _ = Shell.run(mullvad, ["relay", "set", "location", relay.cc, relay.cityCode])
+            if cancelled { break }
             _ = Shell.run(mullvad, ["connect", "--wait"], timeout: 40)
-            guard waitForCity(relay) else { continue }
-            guard let down = measure(bytes: Self.probeBytes, upload: false)
-                .flatMap({ probe in measure(bytes: sized(probe, floor: Self.probeBytes), upload: false) ?? probe })
-            else { continue }
-            let up = measure(bytes: Self.uploadProbeBytes, upload: true)
-                .flatMap { probe in measure(bytes: sized(probe, floor: Self.uploadProbeBytes), upload: true) ?? probe } ?? 0
-            results.append(CityThroughput(cityCode: relay.cityCode, downMbps: down, upMbps: up, measuredAt: Date()))
+            // A cancel inside either call fails it; the loop's top then ends the run.
+            guard waitForCity(relay), let result = measureCity(relay) else { continue }
+            results.append(result)
         }
 
         setPhase(.restoring)
@@ -116,9 +126,25 @@ final class ThroughputProbe {
         }
     }
 
-    /// Poll `mullvad status` until the tunnel is up on this city (or give up).
+    /// Download, then upload, through the city the tunnel is on. nil when the
+    /// download fails, or when the run is cancelled before the last transfer
+    /// starts: half a city records nothing.
+    private func measureCity(_ relay: CandidateRelay) -> CityThroughput? {
+        guard !cancelled, let downProbe = measure(bytes: Self.probeBytes, upload: false), !cancelled else { return nil }
+        let down = measure(bytes: sized(downProbe, floor: Self.probeBytes), upload: false) ?? downProbe
+        guard !cancelled else { return nil }
+        let upProbe = measure(bytes: Self.uploadProbeBytes, upload: true)
+        guard !cancelled else { return nil }
+        // A failed upload still records the download, with 0 up.
+        let up = upProbe.map { measure(bytes: sized($0, floor: Self.uploadProbeBytes), upload: true) ?? $0 } ?? 0
+        return CityThroughput(cityCode: relay.cityCode, downMbps: down, upMbps: up, measuredAt: Date())
+    }
+
+    /// Poll `mullvad status` until the tunnel is up on this city (or give up,
+    /// or the run is cancelled).
     private func waitForCity(_ relay: CandidateRelay) -> Bool {
         for _ in 0..<25 {
+            if cancelled { return false }
             let st = parseMullvadStatus(Shell.run(mullvad, ["status"]) ?? "")
             if st.state == .connected, isCurrentCity(relay: st.relay, cc: relay.cc, cityCode: relay.cityCode) {
                 return true
