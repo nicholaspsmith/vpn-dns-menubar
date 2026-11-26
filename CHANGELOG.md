@@ -8,6 +8,13 @@ without one is refused (`[no release]` in the tip commit is the only exception).
 Versions follow [Semantic Versioning](https://semver.org/). The full rule:
 [StatusItemKit — Releases](https://github.com/nicholaspsmith/StatusItemKit#releases-every-push-is-one).
 
+## [1.22.0] - 2026-11-25
+
+- **Measure Latency Now** and **Measure Throughput Now** moved from the menu's Measure submenu to **Preferences… ▸ Measure**, each with the time it last ran. The Measure submenu is gone
+- A running measurement shows a progress bar in its Preferences row. Latency counts the cities pinged; throughput counts the cities finished and moves through the current one by estimate. The menu shows a grey progress row while one runs
+- Both measurements have a **Cancel** button. Latency could not be cancelled before; cancelling it keeps none of that run's results
+- Cancelling a throughput run now stops at its next step, usually within a few seconds, instead of finishing the city it was on. Your relay and connection are put back as before
+
 ## [1.21.0] - 2026-11-10
 
 - Updated StatusItemKit to 0.40.0

@@ -76,7 +76,7 @@ public func visibleSections(_ sections: [MenuSection], hidden: Set<FastList>) ->
     sections.filter { !hidden.contains($0.list) }
 }
 
-private func agoText(_ last: Date, now: Date) -> String {
+func agoText(_ last: Date, now: Date) -> String {
     let secs = Int(now.timeIntervalSince(last))
     if secs < 90 { return "just now" }
     if secs < 3600 { return "\(secs / 60)m ago" }

@@ -13,7 +13,7 @@ A macOS menu-bar app, **"VPN & DNS.app"**, that shows **Mullvad VPN** and
 DNS working while both run at once. Hide the native Mullvad and Tailscale
 menu-bar icons (System Settings ▸ Menu Bar on macOS 27) and use this one.
 
-**Version 1.21.0** · [Changelog](https://github.com/nicholaspsmith/vpn-dns-menubar/releases)
+**Version 1.22.0** · [Changelog](https://github.com/nicholaspsmith/vpn-dns-menubar/releases)
 
 ## What you see
 
@@ -55,7 +55,7 @@ Mullvad - Device Name                    ← section header (this Mac's Mullvad 
   Fastest Latin America (No-ID)          ▸
   Fastest Europe (No-ID)                 ▸
   Fastest Asia (No-ID)                   ▸
-  Measure                                ▸ Measure Latency / Throughput Now, or progress + Cancel
+  Measuring throughput… 4/21 Chicago, IL ← only while a measurement runs
 ──────────────────────────────────────────
 Tailscale                                ← section header
   ●  Connection · ON                     → click brings Tailscale up / down
@@ -67,7 +67,7 @@ Quit VPN & DNS                           ⌘Q
 ```
 
 Every option in the menu (a status row, a city, a split-tunnel toggle or
-removal, a Measure row) leaves the menu open and updates it in place. Only
+removal) leaves the menu open and updates it in place. Only
 Quit and the items ending in "…" (Add App…, Open Tailscale App…,
 Preferences…) close it. While the menu is open the app polls every two
 seconds, so a connect or disconnect shows as it happens; a row whose action is
@@ -107,14 +107,21 @@ disconnects. A footer shows when latency and throughput were last measured.
 
 **Preferences… ▸ Fastest Lists** picks the ranking (Latency, the default, or
 Throughput) and which of the six submenus appear (all by default). Every
-choice persists. **Measure ▸** starts a latency measurement, or starts
-or cancels a throughput run. Nothing is ever measured unless you pick one of
-these.
+choice persists.
+
+**Preferences… ▸ Measure** has a **Measure Latency Now** and a **Measure
+Throughput Now** button, each with the time it last ran. Nothing is ever
+measured unless you click one of them. While one runs, its row turns into a
+progress bar with a **Cancel** button, the other button is greyed out, and the
+menu shows a grey progress row (e.g. "Measuring throughput… 4/21 Chicago, IL").
+A run carries on if you close the window; reopen Preferences to cancel it.
 
 ### Latency
 
-Latency is measured with direct ICMP pings (`/sbin/ping`), only when you pick
-**Measure ▸ Measure Latency Now**.
+Latency is measured with direct ICMP pings (`/sbin/ping`), only when you click
+**Measure Latency Now** in Preferences. It takes a few seconds; the bar counts
+the cities pinged. **Cancel** stops it within about five seconds (the pings
+already out come back first) and keeps none of that run's results.
 
 - With Mullvad disconnected the pings go out directly.
 - If Mullvad is connected and split tunnelling is already on, the app adds
@@ -122,7 +129,7 @@ Latency is measured with direct ICMP pings (`/sbin/ping`), only when you pick
   pings, then removes it. The transient exclusion is hidden from the Split
   Tunnel submenu, and a startup sweep removes it if a crash left it behind.
 - It never turns split tunnelling on or off itself; connected with split
-  tunnelling off, the row is greyed out with a note saying why.
+  tunnelling off, the button is greyed out with a note saying why.
 
 Until the first live measurement completes, the app uses seed values from
 `Resources/bundle/candidates.json`. Results persist in
@@ -142,10 +149,15 @@ it restores the relay constraint it found (`mullvad relay get`, including a
 custom list) and reconnects or disconnects to match the starting state.
 
 A run moves your traffic between cities and drops long-lived connections, so it
-only runs when you pick **Measure ▸ Measure Throughput Now** (the row shows
-progress, e.g. "Measure · throughput 4/21"). It never starts on its own.
+only runs when you click **Measure Throughput Now** in Preferences. It never
+starts on its own. A city reports nothing until it is done, so the progress bar
+counts the cities finished and creeps through the current one by estimate
+(about 18 s a city).
 
-A run that has started always completes. In throughput mode rows read
+**Cancel** stops the run at its next step: a connect or transfer already under
+way finishes first, usually within a few seconds. The city it was on records
+nothing, the cities already finished keep their results, and your relay and
+connection are put back. In throughput mode rows read
 `Chicago, IL — ↓ 412 ↑ 88 Mbps`, sorted by download; untested cities sort last
 as `Chicago, IL — 24 ms · not tested`. Results persist in
 `~/Library/Application Support/VPNDNSMenuBar/throughput.json`.

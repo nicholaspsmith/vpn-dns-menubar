@@ -57,47 +57,68 @@ private func dotImage(_ color: NSColor, diameter: CGFloat = 10) -> NSImage {
 }
 
 /// Pings candidate relays and records direct latency, only when the user
-/// picks Measure ▸ Measure Latency Now. Two probe modes, chosen by `probeDecision`:
+/// clicks Measure Latency Now in Preferences. Two probe modes, chosen by `probeDecision`:
 /// Mullvad off → plain pings are direct; Mullvad connected → only if the
 /// user already has split tunneling on, by temporarily excluding
 /// `/sbin/ping` from the tunnel (never flipping split-tunnel state itself).
-/// Runs off the main thread.
+/// Runs off the main thread. `onUpdate` reports a run starting, ending or
+/// recording; `onProgress` a relay pinged or a cancel asked for.
 final class LatencyProbe {
     private let store: LatencyStore
     private let isOff: () -> Bool
     private let splitTunnelOn: () -> Bool
     private let onUpdate: () -> Void
+    private let onProgress: () -> Void
     private let queue = DispatchQueue(label: "vpndns.latency", attributes: .concurrent)
     private let gate = DispatchSemaphore(value: 8)   // max concurrent pings
+    private let cancelLock = NSLock()
+    private var cancelRequested = false   // guarded by cancelLock
     private(set) var isRunning = false
+    /// Relays pinged so far and in all, in the run in flight (main thread).
+    private(set) var done = 0
+    private(set) var total = 0
 
-    init(store: LatencyStore, isOff: @escaping () -> Bool,
-         splitTunnelOn: @escaping () -> Bool, onUpdate: @escaping () -> Void) {
+    init(store: LatencyStore, isOff: @escaping () -> Bool, splitTunnelOn: @escaping () -> Bool,
+         onUpdate: @escaping () -> Void, onProgress: @escaping () -> Void) {
         self.store = store
         self.isOff = isOff
         self.splitTunnelOn = splitTunnelOn
         self.onUpdate = onUpdate
+        self.onProgress = onProgress
     }
 
     /// Whether a trustworthy probe is possible right now (main thread).
     var canMeasure: Bool { probeDecision(mullvadOff: isOff(), splitTunnelOn: splitTunnelOn()) != .skip }
 
-    /// Main thread. The only trigger: the user's menu pick. Probes if the
-    /// current state permits a trustworthy probe; no-op while one runs.
+    /// Cancel was clicked and the pings already out are still coming back.
+    var isCancelling: Bool { isRunning && cancelled }
+
+    /// Main thread. The only trigger: the user's click in Preferences. Probes
+    /// if the current state permits a trustworthy probe; no-op while one runs.
     func measureNow() {
         guard !isRunning else { return }
-        switch probeDecision(mullvadOff: isOff(), splitTunnelOn: splitTunnelOn()) {
-        case .skip:
-            return
-        case .probeDirect:
-            isRunning = true
-            onUpdate()
-            queue.async { [weak self] in self?.runProbe(viaSplitTunnel: false) }
-        case .probeViaSplitTunnel:
-            isRunning = true
-            onUpdate()
-            queue.async { [weak self] in self?.runProbe(viaSplitTunnel: true) }
-        }
+        let decision = probeDecision(mullvadOff: isOff(), splitTunnelOn: splitTunnelOn())
+        guard decision != .skip else { return }
+        cancelLock.lock(); cancelRequested = false; cancelLock.unlock()
+        isRunning = true
+        done = 0
+        total = store.pool.us.count + store.pool.nonus.count
+        onUpdate()
+        queue.async { [weak self] in self?.runProbe(viaSplitTunnel: decision == .probeViaSplitTunnel) }
+    }
+
+    /// Main thread. Stops the run in flight: no further ping starts, the ones
+    /// already out finish (5 s at most), and nothing it measured is kept.
+    /// No-op when idle.
+    func cancel() {
+        guard isRunning else { return }
+        cancelLock.lock(); cancelRequested = true; cancelLock.unlock()
+        onProgress()
+    }
+
+    private var cancelled: Bool {
+        cancelLock.lock(); defer { cancelLock.unlock() }
+        return cancelRequested
     }
 
     private func runProbe(viaSplitTunnel: Bool) {
@@ -123,8 +144,15 @@ final class LatencyProbe {
             gate.wait()
             group.enter()
             queue.async { [weak self] in
-                defer { self?.gate.signal(); group.leave() }
+                defer {
+                    // Counted before the group is left, so the last relay's
+                    // count reaches the main thread ahead of the run's end.
+                    DispatchQueue.main.async { self?.done += 1; self?.onProgress() }
+                    self?.gate.signal()
+                    group.leave()
+                }
                 guard let self = self else { return }
+                if self.cancelled { return }
                 if !viaSplitTunnel && !self.isOff() { return }   // tunnel came up mid-probe
                 let out = Shell.run("/sbin/ping", ["-c", "5", "-i", "0.2", "-t", "5", relay.ip]) ?? ""
                 guard let ms = parsePingMinRTT(out) else { return }   // failed ping: keep last-good/seed, don't clobber
@@ -136,8 +164,8 @@ final class LatencyProbe {
         group.wait()
 
         // Commit-time re-verification (same rigor as the old isOff() re-check):
-        // a batch whose conditions degraded mid-probe is discarded wholesale.
-        // Then ALWAYS remove our transient exclusion.
+        // a batch whose conditions degraded mid-probe is discarded wholesale,
+        // as is a cancelled one. Then ALWAYS remove our transient exclusion.
         let trustworthy: Bool
         if viaSplitTunnel {
             let st = parseSplitTunnel(Shell.run(MULLVAD, ["split-tunnel", "get"]) ?? "")
@@ -146,7 +174,7 @@ final class LatencyProbe {
         } else {
             trustworthy = isOff()
         }
-        guard trustworthy, !results.isEmpty else { return }
+        guard trustworthy, !cancelled, !results.isEmpty else { return }
         DispatchQueue.main.async { [weak self] in
             self?.store.recordAll(results)
             self?.onUpdate()
@@ -248,11 +276,6 @@ final class App: NSObject, NSApplicationDelegate {
         controller.onMenuWillOpen = { [weak self] in self?.menuWillOpen() }
         controller.onMenuDidClose = { [weak self] in self?.menuDidClose() }
         controller.start()
-        preferencesModel = PreferencesModel(
-            onIconStyle: { [weak self] in self?.applyIcon() },
-            preview: { [weak self] style in self?.iconImage(style) ?? NSImage() }
-        )
-        preferences = PreferencesPane.vpnDNS(model: preferencesModel)
         yieldClient = YieldClient(item: controller)
         yieldClient.start()
         minuteCue = MinuteCue { [weak self] in
@@ -270,7 +293,8 @@ final class App: NSObject, NSApplicationDelegate {
             },
             // Main-thread read: measureNow and canMeasure only run on the main thread.
             splitTunnelOn: { [weak self] in self?.splitTunnel.enabled ?? false },
-            onUpdate: { [weak self] in self?.requestPoll() }
+            onUpdate: { [weak self] in self?.measurementChanged() },
+            onProgress: { [weak self] in self?.preferencesModel?.refreshMeasure() }
         )
         throughput = ThroughputProbe(
             store: store,
@@ -281,8 +305,17 @@ final class App: NSObject, NSApplicationDelegate {
                 defer { self.mullvadStateLock.unlock() }
                 return self.mullvadIsOff
             },
-            onUpdate: { [weak self] in self?.requestPoll() }
+            onUpdate: { [weak self] in self?.measurementChanged() }
         )
+        // After the probes: the model reads their state as it is made.
+        preferencesModel = PreferencesModel(
+            onIconStyle: { [weak self] in self?.applyIcon() },
+            preview: { [weak self] style in self?.iconImage(style) ?? NSImage() },
+            measureState: { [weak self] in self?.measureState ?? MeasureState() },
+            startMeasurement: { [weak self] in self?.startMeasurement($0) },
+            cancelMeasurement: { [weak self] in self?.cancelMeasurement() }
+        )
+        preferences = PreferencesPane.vpnDNS(model: preferencesModel)
         // Crash backstop: a probe killed mid-run can leave /sbin/ping in the
         // split-tunnel exclusions; never let that linger across launches.
         DispatchQueue.global().async {
@@ -356,6 +389,8 @@ final class App: NSObject, NSApplicationDelegate {
                 self.applyIcon()
                 self.actionsInFlight.subtract(settling)
                 self.refreshOpenMenu()
+                // Whether latency can be measured follows the state just read.
+                self.preferencesModel?.refreshMeasure()
                 if self.pollAgain {
                     self.pollAgain = false
                     self.poll()
@@ -423,7 +458,7 @@ final class App: NSObject, NSApplicationDelegate {
                 populateCities(sub, section, footers: [model.footer, model.throughputFooter])
             }
         }
-        refreshSubmenu(open.measure, title: measureTitle, populate: populateMeasure)
+        updateMeasureRow(open.measure)
     }
 
 
@@ -560,7 +595,8 @@ final class App: NSObject, NSApplicationDelegate {
             menu.addItem(item)
             cities.append((section.list, item))
         }
-        let measure = submenuItem(measureTitle, populate: populateMeasure)
+        let measure = InfoMenuItem.make("")
+        updateMeasureRow(measure)
         menu.addItem(measure)
 
         menu.addItem(NSMenuItem.separator())
@@ -612,59 +648,59 @@ final class App: NSObject, NSApplicationDelegate {
 
     // MARK: - Measure
 
-    // "Measure ▸" — the only way latency or throughput is ever measured: a
-    // start row for each, or progress (+ Cancel for throughput) while one is in
-    // flight. The top-level title carries the progress too, so a run is visible
-    // without opening the submenu.
-    private var measureTitle: String {
-        var title = "Measure"
-        if case .measuring(let done, let total, _) = throughput.phase {
-            title += " · throughput \(done + 1)/\(total)"
-        } else if throughput.phase == .restoring {
-            title += " · restoring"
-        } else if probe.isRunning {
-            title += " · latency"
-        }
-        return title
-    }
+    // Latency and throughput are measured only from Preferences ▸ Measure,
+    // which has the buttons, the progress bar and Cancel. The menu just says
+    // so while a run is going, since a throughput run moves the connection
+    // from city to city for minutes.
 
-    private func populateMeasure(_ sub: NSMenu) {
-        if probe.isRunning {
-            sub.addItem(InfoMenuItem.make("Measuring latency…"))
-        } else if throughput.isRunning {
-            // A throughput run is hopping relays; pings now would not be direct.
-            sub.addItem(InfoMenuItem.make("Measure Latency Now"))
-        } else if probe.canMeasure {
-            let run = NSMenuItem(title: "Measure Latency Now", action: #selector(measureLatency), keyEquivalent: "")
-            run.target = self
-            sub.addItem(run)
-        } else {
-            // Connected with split tunnelling off: a ping would time the tunnel.
-            sub.addItem(InfoMenuItem.make("Measure Latency Now"))
-            sub.addItem(InfoMenuItem.make("Disconnect Mullvad or turn on Split Tunnel"))
-        }
+    /// The measurement in flight, nil when idle (main thread).
+    private var measureActivity: MeasureActivity? {
         switch throughput.phase {
-        case .idle:
-            if probe.isRunning {
-                sub.addItem(InfoMenuItem.make("Measure Throughput Now"))
-            } else {
-                let run = NSMenuItem(title: "Measure Throughput Now", action: #selector(measureThroughput), keyEquivalent: "")
-                run.target = self
-                sub.addItem(run)
-            }
         case .measuring(let done, let total, let city):
-            sub.addItem(InfoMenuItem.make(throughputProgressTitle(done: done, total: total, city: city)))
-            let cancel = NSMenuItem(title: "Cancel", action: #selector(cancelThroughput), keyEquivalent: "")
-            cancel.target = self
-            sub.addItem(cancel)
+            return .throughput(done: done, total: total, city: city,
+                               cityStarted: throughput.cityStarted, cancelling: throughput.isCancelling)
         case .restoring:
-            sub.addItem(InfoMenuItem.make("Restoring previous connection…"))
+            return .restoring
+        case .idle:
+            guard probe.isRunning else { return nil }
+            return .latency(done: probe.done, total: probe.total, cancelling: probe.isCancelling)
         }
     }
 
-    @objc private func measureLatency() { probe.measureNow() }
-    @objc private func measureThroughput() { throughput.startRun() }
-    @objc private func cancelThroughput() { throughput.cancel() }
+    /// What Preferences ▸ Measure shows right now.
+    private var measureState: MeasureState {
+        MeasureState(activity: measureActivity, canMeasureLatency: probe.canMeasure,
+                     lastLatency: store.lastDirectMeasurement, lastThroughput: store.lastThroughputMeasurement)
+    }
+
+    /// The menu's read-only progress row: there only while a run is going.
+    private func updateMeasureRow(_ item: NSMenuItem) {
+        let title = measureActivity.map { measureProgress($0, now: Date()).label }
+        if item.title != title ?? "" { item.title = title ?? "" }
+        item.isHidden = title == nil
+    }
+
+    /// A run started, moved to its next city, or ended: Preferences shows it
+    /// at once, and a poll picks up what it did to the connection and lists.
+    private func measurementChanged() {
+        preferencesModel?.refreshMeasure()
+        requestPoll()
+    }
+
+    /// One measurement at a time: a throughput run hops relays, so pings
+    /// during one would not be direct.
+    private func startMeasurement(_ kind: MeasureKind) {
+        guard measureState.canStart(kind) else { return }
+        switch kind {
+        case .latency: probe.measureNow()
+        case .throughput: throughput.startRun()
+        }
+    }
+
+    private func cancelMeasurement() {
+        probe.cancel()
+        throughput.cancel()
+    }
 
     // MARK: - Fastest cities
 
